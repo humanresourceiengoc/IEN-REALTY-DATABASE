@@ -1,0 +1,10 @@
+{
+  "name": "Remix IEN Realty Inc. - Client Compliance \u0026 Document Portal",
+  "description": "Comprehensive client compliance dossier, document organizer with 01-08 folders, PDF storage, maturity countdowns, and expiration deadline push notification alerts for IEN Realty Inc.",
+  "requestFramePermissions": [
+    "notifications"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
