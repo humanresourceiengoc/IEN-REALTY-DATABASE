@@ -72,15 +72,15 @@ export const ClientProfileCard: React.FC<ClientProfileCardProps> = ({
   const getStatusBadgeStyle = (status: string) => {
     switch (status) {
       case 'Active':
-        return 'bg-emerald-500/10 text-emerald-700 border-emerald-300';
-      case 'Pending Renewal':
-        return 'bg-amber-500/10 text-amber-800 border-amber-300';
-      case 'Under Review':
-        return 'bg-blue-500/10 text-blue-800 border-blue-300';
-      case 'Matured/Expired':
-        return 'bg-rose-500/10 text-rose-800 border-rose-300';
+        return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+      case 'Active Renewal':
+        return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+      case 'Expired':
+        return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+      case 'Terminated':
+        return 'bg-slate-700/60 text-slate-300 border-slate-600';
       default:
-        return 'bg-slate-500/10 text-slate-700 border-slate-300';
+        return 'bg-slate-500/20 text-slate-300 border-slate-500/40';
     }
   };
 
@@ -102,13 +102,30 @@ export const ClientProfileCard: React.FC<ClientProfileCardProps> = ({
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
+              <div className="flex flex-wrap items-center gap-2 mb-1.5">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-sky-300 bg-sky-950/80 px-2.5 py-0.5 rounded-md border border-sky-700/50">
                   CIF: {client.cifNo}
                 </span>
                 <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md border ${getStatusBadgeStyle(client.status)}`}>
                   {client.status}
                 </span>
+
+                {/* Business Registration Type Badge */}
+                {client.registrationType && (
+                  <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-200 border border-indigo-500/40 flex items-center gap-1">
+                    <Building className="w-3 h-3 text-indigo-400" />
+                    <span>{client.registrationType}</span>
+                  </span>
+                )}
+
+                {/* Service Category Badge */}
+                {client.serviceCategory && (
+                  <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-200 border border-amber-500/40 flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-amber-400" />
+                    <span>{client.serviceCategory}</span>
+                  </span>
+                )}
+
                 {daysRemaining !== null && daysRemaining <= 30 && (
                   <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />

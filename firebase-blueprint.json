@@ -11,6 +11,8 @@
         "logoUrl": { "type": "string" },
         "dateOfEngagement": { "type": "string" },
         "cifNo": { "type": "string" },
+        "registrationType": { "type": "string" },
+        "serviceCategory": { "type": "string" },
         "officeAddress": { "type": "string" },
         "contactPerson": { "type": "string" },
         "contactNumber": { "type": "string" },

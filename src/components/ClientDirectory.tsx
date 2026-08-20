@@ -67,11 +67,13 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
       const matchesSearch = 
         !q ||
         client.clientName.toLowerCase().includes(q) ||
-        client.tradeName.toLowerCase().includes(q) ||
-        client.cifNo.toLowerCase().includes(q) ||
-        client.tin.toLowerCase().includes(q) ||
-        client.contactPerson.toLowerCase().includes(q) ||
-        client.officeAddress.toLowerCase().includes(q);
+        (client.tradeName && client.tradeName.toLowerCase().includes(q)) ||
+        (client.cifNo && client.cifNo.toLowerCase().includes(q)) ||
+        (client.tin && client.tin.toLowerCase().includes(q)) ||
+        (client.registrationType && client.registrationType.toLowerCase().includes(q)) ||
+        (client.serviceCategory && client.serviceCategory.toLowerCase().includes(q)) ||
+        (client.contactPerson && client.contactPerson.toLowerCase().includes(q)) ||
+        (client.officeAddress && client.officeAddress.toLowerCase().includes(q));
 
       const matchesStatus = statusFilter === 'all' || client.status === statusFilter;
 
@@ -185,7 +187,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
 
         {/* Status Filter Tabs */}
         <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
-          {(['all', 'Active', 'Pending Renewal', 'Under Review', 'Matured/Expired'] as const).map((status) => {
+          {(['all', 'Active', 'Active Renewal', 'Expired', 'Terminated'] as const).map((status) => {
             const isActive = statusFilter === status;
             const count = status === 'all' 
               ? clients.length 
@@ -250,6 +252,15 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                 ? 'bg-sky-50 text-sky-700 border-sky-200'
                 : 'bg-emerald-50 text-emerald-700 border-emerald-200';
 
+            const statusBadgeClasses = 
+              client.status === 'Active'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : client.status === 'Active Renewal'
+                ? 'bg-amber-50 text-amber-800 border-amber-300'
+                : client.status === 'Expired'
+                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                : 'bg-slate-100 text-slate-700 border-slate-300';
+
             return (
               <div
                 key={client.id}
@@ -269,19 +280,27 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                         <p className="text-xs font-semibold text-slate-500 mt-0.5">
                           DBA: {client.tradeName || 'Standard Commercial'}
                         </p>
+
+                        {/* Registration Type & Service Category Badges */}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          {client.registrationType && (
+                            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                              <Building className="w-2.5 h-2.5" />
+                              {client.registrationType}
+                            </span>
+                          )}
+                          {client.serviceCategory && (
+                            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                              <ShieldCheck className="w-2.5 h-2.5" />
+                              {client.serviceCategory}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
                     {/* Status Badge */}
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 border ${
-                      client.status === 'Active'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : client.status === 'Pending Renewal'
-                        ? 'bg-sky-50 text-sky-700 border-sky-200'
-                        : client.status === 'Matured/Expired'
-                        ? 'bg-rose-50 text-rose-700 border-rose-200'
-                        : 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                    }`}>
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 border ${statusBadgeClasses}`}>
                       {client.status}
                     </span>
                   </div>

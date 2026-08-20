@@ -35,6 +35,12 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
   const [logoUrl, setLogoUrl] = useState('');
   const [dateOfEngagement, setDateOfEngagement] = useState('');
   const [cifNo, setCifNo] = useState('');
+  const [registrationType, setRegistrationType] = useState('Corporation');
+  const [customRegistration, setCustomRegistration] = useState('');
+  const [isCustomReg, setIsCustomReg] = useState(false);
+  const [serviceCategory, setServiceCategory] = useState('Retainer');
+  const [customService, setCustomService] = useState('');
+  const [isCustomService, setIsCustomService] = useState(false);
   const [officeAddress, setOfficeAddress] = useState('');
   const [contactPerson, setContactPerson] = useState('');
   const [contactNumber, setContactNumber] = useState('');
@@ -57,6 +63,31 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
       setLogoUrl(client.logoUrl || '');
       setDateOfEngagement(client.dateOfEngagement || getTodayDateString());
       setCifNo(client.cifNo || `IEN-CIF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+      
+      // Registration Type Init
+      const reg = client.registrationType || 'Corporation';
+      if (['OPC', 'Corporation', 'Sole Proprietorship'].includes(reg)) {
+        setRegistrationType(reg);
+        setIsCustomReg(false);
+        setCustomRegistration('');
+      } else {
+        setRegistrationType('Custom');
+        setIsCustomReg(true);
+        setCustomRegistration(reg);
+      }
+
+      // Service Category Init
+      const srv = client.serviceCategory || 'Retainer';
+      if (['Virtual Client', 'Retainer', 'Virtual Retainer'].includes(srv)) {
+        setServiceCategory(srv);
+        setIsCustomService(false);
+        setCustomService('');
+      } else {
+        setServiceCategory('Custom');
+        setIsCustomService(true);
+        setCustomService(srv);
+      }
+
       setOfficeAddress(client.officeAddress || '');
       setContactPerson(client.contactPerson || '');
       setContactNumber(client.contactNumber || '');
@@ -68,7 +99,19 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
       setAnnualSubNotes(client.annualSubNotes || '');
       setContractDate(client.contractDate || getTodayDateString());
       setMaturityDate(client.maturityDate || addYearsToDate(1, getTodayDateString()));
-      setStatus(client.status || 'Active');
+      
+      // Handle legacy statuses mapping if any
+      const currentSt = client.status as string;
+      if (currentSt === 'Pending Renewal' || currentSt === 'Under Review') {
+        setStatus('Active Renewal');
+      } else if (currentSt === 'Matured/Expired' || currentSt === 'Dormant') {
+        setStatus('Expired');
+      } else if (['Active', 'Active Renewal', 'Expired', 'Terminated'].includes(currentSt)) {
+        setStatus(currentSt as ClientStatus);
+      } else {
+        setStatus('Active');
+      }
+
       setNotes(client.notes || '');
     } else {
       const today = getTodayDateString();
@@ -77,6 +120,12 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
       setLogoUrl('');
       setDateOfEngagement(today);
       setCifNo(`IEN-CIF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+      setRegistrationType('Corporation');
+      setIsCustomReg(false);
+      setCustomRegistration('');
+      setServiceCategory('Retainer');
+      setIsCustomService(false);
+      setCustomService('');
       setOfficeAddress('');
       setContactPerson('');
       setContactNumber('');
@@ -120,6 +169,14 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
       return;
     }
 
+    const finalRegistration = isCustomReg
+      ? (customRegistration.trim() || 'Custom')
+      : registrationType;
+
+    const finalServiceCategory = isCustomService
+      ? (customService.trim() || 'Custom')
+      : serviceCategory;
+
     const savedClient: ClientProfile = {
       id: client ? client.id : `client_${Date.now()}_${Math.random().toString(36).substr(2, 7)}`,
       clientName: clientName.trim(),
@@ -127,6 +184,8 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
       logoUrl: logoUrl.trim(),
       dateOfEngagement: dateOfEngagement || getTodayDateString(),
       cifNo: cifNo.trim(),
+      registrationType: finalRegistration,
+      serviceCategory: finalServiceCategory,
       officeAddress: officeAddress.trim(),
       contactPerson: contactPerson.trim(),
       contactNumber: contactNumber.trim(),
@@ -280,7 +339,7 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
 
                   <div>
                     <label className="block font-bold text-slate-800 mb-1">
-                      Account Status
+                      Account Status <span className="text-rose-500">*</span>
                     </label>
                     <select
                       value={status}
@@ -288,12 +347,108 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
                       className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 focus:outline-none shadow-xs"
                     >
                       <option value="Active">Active</option>
-                      <option value="Under Review">Under Review</option>
-                      <option value="Pending Renewal">Pending Renewal</option>
-                      <option value="Matured/Expired">Matured / Expired</option>
-                      <option value="Dormant">Dormant</option>
+                      <option value="Active Renewal">Active Renewal</option>
+                      <option value="Expired">Expired</option>
+                      <option value="Terminated">Terminated</option>
                     </select>
                   </div>
+                </div>
+
+                {/* 2 Columns: Business Registration Type & Client Service Category */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  
+                  {/* Business Registration Type */}
+                  <div className="bg-sky-50/50 p-3 rounded-xl border border-sky-100 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block font-extrabold text-slate-800 text-[11px]">
+                        Business Registration Type <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-sky-700 font-semibold bg-sky-100/70 px-1.5 py-0.2 rounded">
+                        OPC / Corp / Sole Prop
+                      </span>
+                    </div>
+
+                    <select
+                      value={isCustomReg ? 'Custom' : registrationType}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'Custom') {
+                          setIsCustomReg(true);
+                          setRegistrationType('Custom');
+                        } else {
+                          setIsCustomReg(false);
+                          setRegistrationType(val);
+                        }
+                      }}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 focus:outline-none shadow-xs"
+                    >
+                      <option value="OPC">OPC (One Person Corporation)</option>
+                      <option value="Corporation">Corporation</option>
+                      <option value="Sole Proprietorship">Sole Proprietorship</option>
+                      <option value="Custom">+ Customize Other Registration...</option>
+                    </select>
+
+                    {isCustomReg && (
+                      <div className="pt-1">
+                        <input
+                          type="text"
+                          placeholder="Type custom registration type (e.g. Partnership, Foreign Corp)..."
+                          value={customRegistration}
+                          onChange={(e) => setCustomRegistration(e.target.value)}
+                          className="w-full bg-white border border-sky-400 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-sky-500/30 focus:outline-none shadow-xs"
+                          autoFocus
+                          required={isCustomReg}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Client Category / Service Type */}
+                  <div className="bg-amber-50/40 p-3 rounded-xl border border-amber-100 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block font-extrabold text-slate-800 text-[11px]">
+                        Client Category / Service <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-amber-800 font-semibold bg-amber-100/70 px-1.5 py-0.2 rounded">
+                        Virtual / Retainer
+                      </span>
+                    </div>
+
+                    <select
+                      value={isCustomService ? 'Custom' : serviceCategory}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'Custom') {
+                          setIsCustomService(true);
+                          setServiceCategory('Custom');
+                        } else {
+                          setIsCustomService(false);
+                          setServiceCategory(val);
+                        }
+                      }}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:outline-none shadow-xs"
+                    >
+                      <option value="Virtual Client">Virtual Client</option>
+                      <option value="Retainer">Retainer</option>
+                      <option value="Virtual Retainer">Virtual Retainer</option>
+                      <option value="Custom">+ Customize Other Service Category...</option>
+                    </select>
+
+                    {isCustomService && (
+                      <div className="pt-1">
+                        <input
+                          type="text"
+                          placeholder="Type custom service category (e.g. Virtual Advisory, Project-Based)..."
+                          value={customService}
+                          onChange={(e) => setCustomService(e.target.value)}
+                          className="w-full bg-white border border-amber-400 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500/30 focus:outline-none shadow-xs"
+                          autoFocus
+                          required={isCustomService}
+                        />
+                      </div>
+                    )}
+                  </div>
+
                 </div>
               </div>
             </div>

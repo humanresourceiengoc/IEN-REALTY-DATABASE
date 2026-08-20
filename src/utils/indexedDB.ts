@@ -1,7 +1,7 @@
-import { ClientProfile, DocumentItem, FolderDefinition } from '../types';
+import { ClientProfile, DocumentItem, FolderDefinition, CloudSyncState } from '../types';
 import { INITIAL_CLIENTS, INITIAL_DOCUMENTS, INITIAL_CUSTOM_FOLDERS } from '../data/seedData';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 
 const DB_NAME = 'IEN_REALTY_COMPLIANCE_DB';
 const DB_VERSION = 1;
@@ -20,7 +20,22 @@ class StorageService {
   private memoryFolders: FolderDefinition[] = [...INITIAL_CUSTOM_FOLDERS];
   private memorySettings: Record<string, unknown> = {};
   private useMemory = false;
-  private isCloudSynced = false;
+  
+  private dataChangeListeners: Array<(event: { type: 'clients' | 'documents' | 'folders' | 'all' }) => void> = [];
+  private syncStateListeners: Array<(state: CloudSyncState) => void> = [];
+  
+  private syncState: CloudSyncState = {
+    status: 'synced',
+    lastSyncedAt: new Date().toISOString(),
+    clientsCount: INITIAL_CLIENTS.length,
+    documentsCount: INITIAL_DOCUMENTS.length,
+    pendingRequestsCount: 0,
+    mode: 'realtime',
+  };
+
+  private unsubscribeClients: (() => void) | null = null;
+  private unsubscribeDocs: (() => void) | null = null;
+  private isRealtimeActive = false;
 
   private openDB(): Promise<IDBDatabase> {
     if (this.useMemory) {
@@ -85,7 +100,7 @@ class StorageService {
     return this.dbPromise;
   }
 
-  // Initialize seed data and sync with Firestore
+  // Initialize seed data and activate Firestore Real-Time Sync
   public async initialize(): Promise<void> {
     try {
       const idb = await this.openDB();
@@ -114,41 +129,144 @@ class StorageService {
         });
       }
 
-      // Sync with Firestore in background
-      this.syncFromCloud().catch((err) => {
-        console.warn('Cloud sync deferred:', err);
-      });
+      // Activate real-time Firestore listeners
+      this.setupFirestoreRealtimeSync();
     } catch (e) {
       console.warn('Using memory fallback for data store:', e);
       this.useMemory = true;
+      this.setupFirestoreRealtimeSync();
     }
   }
 
-  // Cloud Synchronization
-  public async syncFromCloud(): Promise<void> {
-    if (this.isCloudSynced) return;
+  // Cloud Real-Time Listeners setup
+  public setupFirestoreRealtimeSync(): void {
+    if (this.isRealtimeActive) return;
+    this.isRealtimeActive = true;
+    this.updateSyncState({ status: 'syncing', mode: 'realtime' });
+
     try {
-      // Sync clients
+      // 1. Real-time Listen to clients collection
+      this.unsubscribeClients = onSnapshot(
+        collection(db, 'clients'),
+        async (snapshot) => {
+          if (snapshot.empty) {
+            // Seed Firestore with initial clients if cloud collection is fresh
+            await this.seedCloudIfEmpty();
+            return;
+          }
+
+          const remoteClients: ClientProfile[] = [];
+          snapshot.forEach((docSnap) => {
+            remoteClients.push(docSnap.data() as ClientProfile);
+          });
+
+          // Sync into memory & indexedDB
+          for (const c of remoteClients) {
+            await this.saveClientLocal(c);
+          }
+
+          this.updateSyncState({
+            status: 'synced',
+            lastSyncedAt: new Date().toISOString(),
+            clientsCount: remoteClients.length,
+          });
+
+          this.notifyDataChange({ type: 'clients' });
+        },
+        (error) => {
+          console.warn('Clients real-time sync note:', error.message);
+          this.updateSyncState({
+            status: 'offline',
+            errorMessage: error.message,
+          });
+        }
+      );
+
+      // 2. Real-time Listen to documents collection
+      this.unsubscribeDocs = onSnapshot(
+        collection(db, 'documents'),
+        async (snapshot) => {
+          if (!snapshot.empty) {
+            const remoteDocs: DocumentItem[] = [];
+            snapshot.forEach((docSnap) => {
+              remoteDocs.push(docSnap.data() as DocumentItem);
+            });
+
+            for (const d of remoteDocs) {
+              await this.saveDocumentLocal(d);
+            }
+
+            this.updateSyncState({
+              status: 'synced',
+              lastSyncedAt: new Date().toISOString(),
+              documentsCount: remoteDocs.length,
+            });
+
+            this.notifyDataChange({ type: 'documents' });
+          }
+        },
+        (error) => {
+          console.warn('Documents real-time sync note:', error.message);
+        }
+      );
+
+    } catch (err) {
+      console.warn('Real-time sync attachment notice:', err);
+      this.updateSyncState({ status: 'offline' });
+    }
+  }
+
+  // Seed Cloud Firestore if newly opened
+  private async seedCloudIfEmpty(): Promise<void> {
+    try {
+      const snap = await getDocs(collection(db, 'clients'));
+      if (snap.empty) {
+        for (const client of INITIAL_CLIENTS) {
+          await setDoc(doc(db, 'clients', client.id), client);
+        }
+        for (const docItem of INITIAL_DOCUMENTS) {
+          await setDoc(doc(db, 'documents', docItem.id), docItem);
+        }
+      }
+    } catch (e) {
+      console.info('Cloud initial seeding notice:', e);
+    }
+  }
+
+  // Force Full Resync
+  public async forceCloudResync(): Promise<void> {
+    this.updateSyncState({ status: 'syncing' });
+    try {
       const clientsSnapshot = await getDocs(collection(db, 'clients'));
       if (!clientsSnapshot.empty) {
         for (const docSnap of clientsSnapshot.docs) {
-          const cloudClient = docSnap.data() as ClientProfile;
-          await this.saveClientLocal(cloudClient);
+          await this.saveClientLocal(docSnap.data() as ClientProfile);
         }
+      } else {
+        await this.seedCloudIfEmpty();
       }
 
-      // Sync documents
       const docsSnapshot = await getDocs(collection(db, 'documents'));
       if (!docsSnapshot.empty) {
         for (const docSnap of docsSnapshot.docs) {
-          const cloudDoc = docSnap.data() as DocumentItem;
-          await this.saveDocumentLocal(cloudDoc);
+          await this.saveDocumentLocal(docSnap.data() as DocumentItem);
         }
       }
-      this.isCloudSynced = true;
-    } catch (e) {
-      // Offline or first run fallback
-      console.info('Firestore initial fetch status:', e);
+
+      const totalClients = await this.getClients();
+      const totalDocs = await this.getDocuments();
+
+      this.updateSyncState({
+        status: 'synced',
+        lastSyncedAt: new Date().toISOString(),
+        clientsCount: totalClients.length,
+        documentsCount: totalDocs.length,
+      });
+
+      this.notifyDataChange({ type: 'all' });
+    } catch (err) {
+      console.warn('Force cloud resync note:', err);
+      this.updateSyncState({ status: 'error', errorMessage: String(err) });
     }
   }
 
@@ -228,9 +346,13 @@ class StorageService {
     const updated = { ...client, updatedAt: new Date().toISOString() };
     await this.saveClientLocal(updated);
 
-    // Save to Firestore Cloud
+    // Save directly to Firestore Cloud
     try {
       await setDoc(doc(db, 'clients', client.id), updated);
+      this.updateSyncState({
+        status: 'synced',
+        lastSyncedAt: new Date().toISOString(),
+      });
     } catch (e) {
       console.warn('Cloud sync error for saveClient:', e);
     }
@@ -261,88 +383,103 @@ class StorageService {
           tx.oncomplete = () => resolve();
           tx.onerror = () => reject(tx.error);
         });
-      } catch (e) {
-        console.warn('Falling back to memory for deleteClient:', e);
+      } catch (err) {
+        console.warn('Local deleteClient failed:', err);
       }
     }
 
-    // Delete from Firestore Cloud
+    // Delete in Firestore Cloud
     try {
       await deleteDoc(doc(db, 'clients', clientId));
     } catch (e) {
-      console.warn('Cloud sync error for deleteClient:', e);
+      console.warn('Cloud delete client note:', e);
     }
   }
 
   // Documents API
-  public async getDocuments(clientId?: string): Promise<DocumentItem[]> {
+  public async getDocuments(clientId?: string, folderId?: string): Promise<DocumentItem[]> {
+    let docs: DocumentItem[] = [];
     if (this.useMemory) {
-      return clientId ? this.memoryDocs.filter((d) => d.clientId === clientId) : [...this.memoryDocs];
+      docs = [...this.memoryDocs];
+    } else {
+      try {
+        const idb = await this.openDB();
+        docs = await new Promise((resolve, reject) => {
+          const tx = idb.transaction(STORES.DOCUMENTS, 'readonly');
+          const store = tx.objectStore(STORES.DOCUMENTS);
+          const request = store.getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error);
+        });
+      } catch {
+        docs = [...this.memoryDocs];
+      }
     }
+
+    if (clientId && folderId) {
+      return docs.filter((d) => d.clientId === clientId && d.folderId === folderId);
+    }
+    if (clientId) {
+      return docs.filter((d) => d.clientId === clientId);
+    }
+    return docs;
+  }
+
+  public async getDocumentById(id: string): Promise<DocumentItem | null> {
+    if (this.useMemory) return this.memoryDocs.find((d) => d.id === id) || null;
     try {
       const idb = await this.openDB();
       return await new Promise((resolve, reject) => {
         const tx = idb.transaction(STORES.DOCUMENTS, 'readonly');
         const store = tx.objectStore(STORES.DOCUMENTS);
-
-        if (clientId) {
-          const index = store.index('clientId');
-          const req = index.getAll(clientId);
-          req.onsuccess = () => resolve(req.result || []);
-          req.onerror = () => reject(req.error);
-        } else {
-          const req = store.getAll();
-          req.onsuccess = () => resolve(req.result || []);
-          req.onerror = () => reject(req.error);
-        }
+        const request = store.get(id);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
       });
     } catch {
-      return clientId ? this.memoryDocs.filter((d) => d.clientId === clientId) : [...this.memoryDocs];
+      return this.memoryDocs.find((d) => d.id === id) || null;
     }
   }
 
   public async saveDocument(docItem: DocumentItem): Promise<void> {
     await this.saveDocumentLocal(docItem);
 
-    // Save to Firestore Cloud
+    // Save directly to Firestore Cloud
     try {
       await setDoc(doc(db, 'documents', docItem.id), docItem);
+      this.updateSyncState({
+        status: 'synced',
+        lastSyncedAt: new Date().toISOString(),
+      });
     } catch (e) {
       console.warn('Cloud sync error for saveDocument:', e);
     }
   }
 
-  public async deleteDocument(docId: string): Promise<void> {
-    this.memoryDocs = this.memoryDocs.filter((d) => d.id !== docId);
+  public async deleteDocument(documentId: string): Promise<void> {
+    this.memoryDocs = this.memoryDocs.filter((d) => d.id !== documentId);
 
     if (!this.useMemory) {
       try {
         const idb = await this.openDB();
-        await new Promise<void>((resolve, reject) => {
-          const tx = idb.transaction(STORES.DOCUMENTS, 'readwrite');
-          const store = tx.objectStore(STORES.DOCUMENTS);
-          const req = store.delete(docId);
-          req.onsuccess = () => resolve();
-          req.onerror = () => reject(req.error);
-        });
-      } catch (e) {
-        console.warn('Falling back to memory for deleteDocument:', e);
+        const tx = idb.transaction(STORES.DOCUMENTS, 'readwrite');
+        tx.objectStore(STORES.DOCUMENTS).delete(documentId);
+      } catch (err) {
+        console.warn('Local deleteDocument failed:', err);
       }
     }
 
-    // Delete from Firestore Cloud
+    // Delete in Firestore Cloud
     try {
-      await deleteDoc(doc(db, 'documents', docId));
+      await deleteDoc(doc(db, 'documents', documentId));
     } catch (e) {
-      console.warn('Cloud sync error for deleteDocument:', e);
+      console.warn('Cloud delete document note:', e);
     }
   }
 
   // Custom Folders API
   public async getCustomFolders(): Promise<FolderDefinition[]> {
-    if (this.useMemory) {
-      return this.memoryFolders.filter((f) => f.id !== 'folder_cust_insurance' && f.code !== '09');
-    }
+    if (this.useMemory) return this.memoryFolders.filter((f) => f.id !== 'folder_cust_insurance' && f.code !== '09');
     try {
       const idb = await this.openDB();
       const rawFolders: FolderDefinition[] = await new Promise((resolve, reject) => {
@@ -450,8 +587,42 @@ class StorageService {
         console.warn('Falling back to memory for setSetting:', e);
       }
     }
+
+    try {
+      await setDoc(doc(db, 'settings', key), { value });
+    } catch (e) {
+      console.warn('Settings cloud sync note:', e);
+    }
+  }
+
+  // Real-time Event Subscription API
+  public subscribeToDataChanges(listener: (event: { type: 'clients' | 'documents' | 'folders' | 'all' }) => void): () => void {
+    this.dataChangeListeners.push(listener);
+    return () => {
+      this.dataChangeListeners = this.dataChangeListeners.filter((l) => l !== listener);
+    };
+  }
+
+  private notifyDataChange(event: { type: 'clients' | 'documents' | 'folders' | 'all' }): void {
+    this.dataChangeListeners.forEach((l) => l(event));
+  }
+
+  public getSyncState(): CloudSyncState {
+    return { ...this.syncState };
+  }
+
+  public subscribeToSyncState(listener: (state: CloudSyncState) => void): () => void {
+    this.syncStateListeners.push(listener);
+    listener(this.getSyncState());
+    return () => {
+      this.syncStateListeners = this.syncStateListeners.filter((l) => l !== listener);
+    };
+  }
+
+  private updateSyncState(partial: Partial<CloudSyncState>): void {
+    this.syncState = { ...this.syncState, ...partial };
+    this.syncStateListeners.forEach((l) => l(this.getSyncState()));
   }
 }
 
 export const dbService = new StorageService();
-

@@ -46,6 +46,9 @@ import { AddFolderModal } from './components/AddFolderModal';
 import { TransmittalModal } from './components/TransmittalModal';
 import { MasterVerificationGate } from './components/MasterVerificationGate';
 import { SecurityGatekeeperModal } from './components/SecurityGatekeeperModal';
+import { CloudRealtimeSyncModal } from './components/CloudRealtimeSyncModal';
+import { AccountVerificationModal } from './components/AccountVerificationModal';
+import { CloudSyncState } from './types';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserSession | null>(() => authService.getCurrentUser());
@@ -58,9 +61,12 @@ export default function App() {
   const [appLogo, setAppLogo] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
+  const [syncState, setSyncState] = useState<CloudSyncState>(() => dbService.getSyncState());
 
   // Modals state
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [isEditClientModalOpen, setIsEditClientModalOpen] = useState(false);
   const [editingClientData, setEditingClientData] = useState<ClientProfile | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -95,8 +101,30 @@ export default function App() {
     const reqs = authService.getAccessRequests();
     setPendingRequestsCount(reqs.filter((r) => r.status === 'pending').length);
 
+    // Subscribe to Firestore Real-Time Cloud Sync state and Data changes
+    const unsubSync = dbService.subscribeToSyncState((state) => {
+      setSyncState(state);
+    });
+
+    const unsubData = dbService.subscribeToDataChanges(async () => {
+      try {
+        const [loadedClients, loadedDocs, loadedFolders] = await Promise.all([
+          dbService.getClients(),
+          dbService.getDocuments(),
+          dbService.getCustomFolders(),
+        ]);
+        setClients(loadedClients);
+        setDocuments(loadedDocs);
+        setCustomFolders(loadedFolders.filter((f) => f.id !== 'folder_cust_insurance' && f.code !== '09'));
+      } catch (e) {
+        console.warn('Real-time data update notice:', e);
+      }
+    });
+
     return () => {
       unsub();
+      unsubSync();
+      unsubData();
     };
   }, []);
 
@@ -314,9 +342,25 @@ export default function App() {
     );
   }
 
-  // Main Application Workspace (Direct Access Enabled)
+  // MASTER SECURITY GATEKEEPER:
+  // If not logged in OR if user is pending Master Admin verification, show the Master Verification Gate
+  if (!currentUser || currentUser.status !== 'active') {
+    return (
+      <MasterVerificationGate
+        currentUser={currentUser}
+        onUserAuthenticated={(user) => {
+          setCurrentUser(user);
+          if (user?.status === 'active') {
+            showToast(`Welcome, ${user.name}! Access authorized.`, 'success');
+          }
+        }}
+      />
+    );
+  }
+
+  // Main Application Workspace (Protected by Master Gatekeeper)
   return (
-    <div className="min-h-screen bg-slate-100/90 text-slate-900 font-sans antialiased selection:bg-sky-400 selection:text-slate-950">
+    <div className="min-h-screen bg-slate-100/90 text-slate-900 font-sans antialiased selection:bg-sky-400 selection:text-slate-950 overflow-x-hidden">
       
       {/* Toast Notification */}
       {toastMessage && (
@@ -341,6 +385,7 @@ export default function App() {
         currentView={currentView}
         currentUser={currentUser}
         pendingRequestsCount={pendingRequestsCount}
+        syncState={syncState}
         onNavigateToDirectory={() => setCurrentView('directory')}
         onNavigateToClientDetail={() => setCurrentView('client-detail')}
         onSelectClient={handleSelectClient}
@@ -352,6 +397,8 @@ export default function App() {
         onOpenComplianceSummary={() => setIsComplianceSummaryOpen(true)}
         onOpenUploadModal={() => handleOpenUploadModal()}
         onOpenSecurityModal={() => setIsSecurityModalOpen(true)}
+        onOpenSyncModal={() => setIsSyncModalOpen(true)}
+        onOpenVerificationModal={() => setIsVerificationModalOpen(true)}
         onLogout={() => {
           authService.logout();
           setCurrentUser(null);
@@ -593,6 +640,30 @@ export default function App() {
         <SecurityGatekeeperModal
           currentUser={currentUser}
           onClose={() => setIsSecurityModalOpen(false)}
+        />
+      )}
+
+      {/* Cloud Firestore Real-Time Sync Diagnostic Modal */}
+      {isSyncModalOpen && (
+        <CloudRealtimeSyncModal
+          isOpen={isSyncModalOpen}
+          onClose={() => setIsSyncModalOpen(false)}
+          syncState={syncState}
+        />
+      )}
+
+      {/* Account Verification Inspector Modal */}
+      {isVerificationModalOpen && currentUser && (
+        <AccountVerificationModal
+          isOpen={isVerificationModalOpen}
+          onClose={() => setIsVerificationModalOpen(false)}
+          currentUser={currentUser}
+          onSignOut={() => {
+            authService.logout();
+            setCurrentUser(null);
+            showToast('Signed out successfully.', 'info');
+          }}
+          onOpenGatekeeper={() => setIsSecurityModalOpen(true)}
         />
       )}
 

@@ -1,4 +1,7 @@
-export type ClientStatus = 'Active' | 'Under Review' | 'Pending Renewal' | 'Matured/Expired' | 'Dormant';
+export type ClientStatus = 'Active' | 'Active Renewal' | 'Expired' | 'Terminated';
+
+export type StandardRegistrationType = 'OPC' | 'Corporation' | 'Sole Proprietorship';
+export type StandardServiceCategory = 'Virtual Client' | 'Retainer' | 'Virtual Retainer';
 
 export interface ClientProfile {
   id: string;
@@ -7,6 +10,8 @@ export interface ClientProfile {
   logoUrl?: string;
   dateOfEngagement: string; // YYYY-MM-DD
   cifNo: string; // Customer Information File Number
+  registrationType?: string; // 'OPC' | 'Corporation' | 'Sole Proprietorship' | custom
+  serviceCategory?: string; // 'Virtual Client' | 'Retainer' | 'Virtual Retainer' | custom
   officeAddress: string;
   contactPerson: string;
   contactNumber: string;
@@ -114,6 +119,19 @@ export interface UserSession {
   status: 'active' | 'pending_approval' | 'rejected';
   loginTime: string;
   requestNote?: string;
+  googleUid?: string;
+  isGoogleVerified?: boolean;
+  authProvider?: string;
+}
+
+export interface CloudSyncState {
+  status: 'synced' | 'syncing' | 'offline' | 'error';
+  lastSyncedAt: string;
+  clientsCount: number;
+  documentsCount: number;
+  pendingRequestsCount: number;
+  mode: 'realtime' | 'polling';
+  errorMessage?: string;
 }
 
 export interface AccessRequest {

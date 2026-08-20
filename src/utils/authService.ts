@@ -1,7 +1,7 @@
 import { AccessRequest, UserRole, UserSession } from '../types';
 import { db, auth, googleAuthProvider } from '../lib/firebase';
-import { doc, setDoc, getDocs, collection, deleteDoc } from 'firebase/firestore';
-import { signInWithPopup } from 'firebase/auth';
+import { doc, setDoc, getDocs, collection, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
 export const MASTER_GOOGLE_EMAIL = 'humanresource.iengoc@gmail.com';
 export const MASTER_GOOGLE_NAME = 'IEN Realty Corporate HR (Master Admin)';
@@ -15,39 +15,94 @@ const STORAGE_KEYS = {
 
 class AuthService {
   private listeners: Array<(user: UserSession | null) => void> = [];
+  private requestListeners: Array<(requests: AccessRequest[]) => void> = [];
+  private unsubscribeAccessRequests: (() => void) | null = null;
+  private unsubscribeApprovedEmails: (() => void) | null = null;
 
   constructor() {
-    // Ensure storage has defaults
     if (typeof window !== 'undefined') {
       const approved = this.getApprovedEmails();
       if (!approved.includes(MASTER_GOOGLE_EMAIL)) {
         this.addApprovedEmail(MASTER_GOOGLE_EMAIL);
       }
-      this.syncAccessRequestsFromCloud().catch(() => {});
+      this.initRealtimeAuthSync();
     }
   }
 
-  public async syncAccessRequestsFromCloud(): Promise<void> {
+  // Real-time Firestore sync for access requests and approved emails
+  public initRealtimeAuthSync(): void {
     try {
-      const snapshot = await getDocs(collection(db, 'access_requests'));
-      if (!snapshot.empty) {
-        const cloudRequests: AccessRequest[] = [];
-        snapshot.forEach((docSnap) => {
-          cloudRequests.push(docSnap.data() as AccessRequest);
-        });
-        if (cloudRequests.length > 0) {
-          const localRequests = this.getAccessRequests();
-          const merged = [...cloudRequests];
-          localRequests.forEach((loc) => {
-            if (!merged.some((m) => m.id === loc.id || m.email === loc.email)) {
-              merged.push(loc);
-            }
+      // 1. Real-time access requests listener
+      this.unsubscribeAccessRequests = onSnapshot(
+        collection(db, 'access_requests'),
+        (snapshot) => {
+          const cloudRequests: AccessRequest[] = [];
+          snapshot.forEach((docSnap) => {
+            cloudRequests.push(docSnap.data() as AccessRequest);
           });
-          localStorage.setItem(STORAGE_KEYS.ACCESS_REQUESTS, JSON.stringify(merged));
+
+          // Sort newest first
+          cloudRequests.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
+
+          localStorage.setItem(STORAGE_KEYS.ACCESS_REQUESTS, JSON.stringify(cloudRequests));
+          this.notifyRequestListeners(cloudRequests);
+
+          // Check if current user was approved/rejected in real-time
+          const currentUser = this.getCurrentUser();
+          if (currentUser) {
+            const req = cloudRequests.find((r) => r.email.toLowerCase() === currentUser.email.toLowerCase());
+            if (req) {
+              if (req.status === 'approved' && currentUser.status !== 'active') {
+                const updated: UserSession = {
+                  ...currentUser,
+                  role: req.grantedRole || 'approved_staff',
+                  status: 'active',
+                };
+                this.setCurrentUser(updated);
+              } else if (req.status === 'rejected' && currentUser.status !== 'rejected') {
+                const updated: UserSession = {
+                  ...currentUser,
+                  status: 'rejected',
+                  role: 'pending_verification',
+                };
+                this.setCurrentUser(updated);
+              }
+            }
+          }
+        },
+        (error) => {
+          console.warn('Real-time access requests sync note:', error.message);
         }
-      }
+      );
+
+      // 2. Real-time approved emails settings listener
+      this.unsubscribeApprovedEmails = onSnapshot(
+        doc(db, 'settings', 'approved_emails'),
+        (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data && Array.isArray(data.emails)) {
+              const merged = Array.from(new Set([MASTER_GOOGLE_EMAIL, ...data.emails.map((e: string) => e.toLowerCase())]));
+              localStorage.setItem(STORAGE_KEYS.APPROVED_EMAILS, JSON.stringify(merged));
+              
+              // Upgrade current session if approved
+              const cur = this.getCurrentUser();
+              if (cur && merged.includes(cur.email.toLowerCase()) && cur.status !== 'active') {
+                this.setCurrentUser({
+                  ...cur,
+                  role: this.isMasterEmail(cur.email) ? 'master_admin' : 'approved_staff',
+                  status: 'active',
+                });
+              }
+            }
+          }
+        },
+        (error) => {
+          console.warn('Real-time approved emails sync note:', error.message);
+        }
+      );
     } catch (e) {
-      console.info('Cloud access requests sync status:', e);
+      console.warn('Auth real-time setup note:', e);
     }
   }
 
@@ -83,6 +138,13 @@ class AuthService {
     if (!approved.includes(clean)) {
       approved.push(clean);
       localStorage.setItem(STORAGE_KEYS.APPROVED_EMAILS, JSON.stringify(approved));
+
+      // Sync to Firestore
+      try {
+        setDoc(doc(db, 'settings', 'approved_emails'), { emails: approved, updatedAt: new Date().toISOString() }).catch(() => {});
+      } catch (e) {
+        console.warn('Cloud approved emails sync note:', e);
+      }
     }
   }
 
@@ -91,6 +153,13 @@ class AuthService {
     if (this.isMasterEmail(clean)) return; // Cannot remove master
     const approved = this.getApprovedEmails().filter((e) => e !== clean);
     localStorage.setItem(STORAGE_KEYS.APPROVED_EMAILS, JSON.stringify(approved));
+
+    // Sync to Firestore
+    try {
+      setDoc(doc(db, 'settings', 'approved_emails'), { emails: approved, updatedAt: new Date().toISOString() }).catch(() => {});
+    } catch (e) {
+      console.warn('Cloud approved emails sync note:', e);
+    }
 
     // If current logged-in user is removed, update their session
     const current = this.getCurrentUser();
@@ -112,23 +181,35 @@ class AuthService {
       isMaster: true,
       status: 'active',
       loginTime: new Date().toISOString(),
+      googleUid: 'master-verified-uid-001',
+      isGoogleVerified: true,
+      authProvider: 'google.com',
     };
   }
 
-  public getCurrentUser(): UserSession {
+  public getCurrentUser(): UserSession | null {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && parsed.status === 'active') {
+        if (parsed) {
+          if (this.isMasterEmail(parsed.email) || this.isEmailApproved(parsed.email)) {
+            return {
+              ...parsed,
+              status: 'active',
+              role: this.isMasterEmail(parsed.email) ? 'master_admin' : (parsed.role || 'approved_staff'),
+              isMaster: this.isMasterEmail(parsed.email),
+              isGoogleVerified: parsed.isGoogleVerified ?? true,
+              authProvider: parsed.authProvider || 'google.com',
+            };
+          }
           return parsed;
         }
       }
     } catch (e) {
       console.warn('Error reading current user:', e);
     }
-    const defaultUser = this.getDefaultMasterSession();
-    return defaultUser;
+    return null;
   }
 
   public setCurrentUser(user: UserSession | null): void {
@@ -141,15 +222,7 @@ class AuthService {
   }
 
   public loginWithMasterAccount(): UserSession {
-    const masterSession: UserSession = {
-      email: MASTER_GOOGLE_EMAIL,
-      name: MASTER_GOOGLE_NAME,
-      picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      role: 'master_admin',
-      isMaster: true,
-      status: 'active',
-      loginTime: new Date().toISOString(),
-    };
+    const masterSession = this.getDefaultMasterSession();
     this.setCurrentUser(masterSession);
     return masterSession;
   }
@@ -159,14 +232,20 @@ class AuthService {
       const result = await signInWithPopup(auth, googleAuthProvider);
       const user = result.user;
       if (user.email) {
-        return this.loginWithGoogleEmail(
+        const session = this.loginWithGoogleEmail(
           user.email,
           user.displayName || undefined,
-          user.photoURL || undefined
+          user.photoURL || undefined,
+          undefined,
+          user.uid,
+          user.emailVerified,
+          'google.com'
         );
+        return session;
       }
     } catch (error) {
       console.warn('Firebase popup sign-in note:', error);
+      throw error;
     }
     return null;
   }
@@ -175,7 +254,10 @@ class AuthService {
     email: string,
     name?: string,
     picture?: string,
-    requestReason?: string
+    requestReason?: string,
+    googleUid?: string,
+    isGoogleVerified: boolean = true,
+    authProvider: string = 'google.com'
   ): UserSession {
     const cleanEmail = email.trim().toLowerCase();
     const isMaster = this.isMasterEmail(cleanEmail);
@@ -201,6 +283,9 @@ class AuthService {
       status,
       loginTime: new Date().toISOString(),
       requestNote: requestReason,
+      googleUid: googleUid || `google_uid_${Date.now()}`,
+      isGoogleVerified,
+      authProvider,
     };
 
     // If not approved and not master, automatically register access request
@@ -212,7 +297,12 @@ class AuthService {
     return session;
   }
 
-  public logout(): void {
+  public async logout(): Promise<void> {
+    try {
+      await fbSignOut(auth);
+    } catch (e) {
+      console.info('Firebase signout note:', e);
+    }
     this.setCurrentUser(null);
   }
 
@@ -257,7 +347,7 @@ class AuthService {
 
     localStorage.setItem(STORAGE_KEYS.ACCESS_REQUESTS, JSON.stringify(requests));
 
-    // Save to Firestore Cloud
+    // Save to Firestore Cloud Realtime collection
     try {
       setDoc(doc(db, 'access_requests', newRequest.id), newRequest).catch(() => {});
     } catch (e) {
@@ -346,10 +436,21 @@ class AuthService {
     };
   }
 
+  public subscribeToRequests(listener: (requests: AccessRequest[]) => void): () => void {
+    this.requestListeners.push(listener);
+    listener(this.getAccessRequests());
+    return () => {
+      this.requestListeners = this.requestListeners.filter((l) => l !== listener);
+    };
+  }
+
   private notifyListeners(user: UserSession | null): void {
     this.listeners.forEach((l) => l(user));
+  }
+
+  private notifyRequestListeners(requests: AccessRequest[]): void {
+    this.requestListeners.forEach((l) => l(requests));
   }
 }
 
 export const authService = new AuthService();
-

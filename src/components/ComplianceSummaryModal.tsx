@@ -167,33 +167,41 @@ export const ComplianceSummaryModal: React.FC<ComplianceSummaryModalProps> = ({
           {/* Registration & Contract Matrix */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             
-            {/* Tax & Registration Details */}
-            <div className="border border-slate-300 rounded-xl p-4 bg-white">
-              <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider mb-2.5 pb-1 border-b border-slate-200">
-                Tax & Regulatory Identifiers
-              </h4>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-600 font-medium">TIN Number:</span>
-                  <span className="font-mono font-bold text-slate-950">{client.tin || 'N/A'}</span>
+              {/* Tax & Registration Details */}
+              <div className="border border-slate-300 rounded-xl p-4 bg-white">
+                <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider mb-2.5 pb-1 border-b border-slate-200">
+                  Tax & Regulatory Identifiers
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600 font-medium">Registration Type:</span>
+                    <span className="font-bold text-indigo-900">{client.registrationType || 'Corporation'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600 font-medium">Service Category:</span>
+                    <span className="font-bold text-amber-900">{client.serviceCategory || 'Retainer'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600 font-medium">TIN Number:</span>
+                    <span className="font-mono font-bold text-slate-950">{client.tin || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600 font-medium">OCN Number:</span>
+                    <span className="font-mono font-bold text-slate-950">{client.ocnNumber || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600 font-medium">ATP OCN:</span>
+                    <span className="font-mono font-bold text-slate-950">{client.atpOcn || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600 font-medium">Annual Submission:</span>
+                    <span className="font-bold text-slate-950">{formatDateDisplay(client.annualSubDate)}</span>
+                  </div>
+                  {client.annualSubNotes && (
+                    <p className="text-[10px] text-slate-500 italic mt-1">{client.annualSubNotes}</p>
+                  )}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600 font-medium">OCN Number:</span>
-                  <span className="font-mono font-bold text-slate-950">{client.ocnNumber || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600 font-medium">ATP OCN:</span>
-                  <span className="font-mono font-bold text-slate-950">{client.atpOcn || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600 font-medium">Annual Submission:</span>
-                  <span className="font-bold text-slate-950">{formatDateDisplay(client.annualSubDate)}</span>
-                </div>
-                {client.annualSubNotes && (
-                  <p className="text-[10px] text-slate-500 italic mt-1">{client.annualSubNotes}</p>
-                )}
               </div>
-            </div>
 
             {/* Contract Period & Maturity */}
             <div className="border border-slate-300 rounded-xl p-4 bg-white">
