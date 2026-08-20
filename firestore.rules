@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global deny-by-default safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMasterAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'humanresource.iengoc@gmail.com'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Clients Collection
+    match /clients/{clientId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(clientId);
+      allow delete: if isMasterAdmin() && isValidId(clientId);
+    }
+
+    // Documents Collection
+    match /documents/{documentId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(documentId);
+      allow delete: if isSignedIn() && isValidId(documentId);
+    }
+
+    // Access Requests Collection
+    match /access_requests/{requestId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(requestId);
+      allow update, delete: if isMasterAdmin() && isValidId(requestId);
+    }
+
+    // Settings Collection
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isMasterAdmin() && isValidId(settingId);
+    }
+  }
+}

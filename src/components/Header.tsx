@@ -369,18 +369,18 @@ export const Header: React.FC<HeaderProps> = ({
                       <span>{currentUser.isMaster ? '👑' : currentUser.email.charAt(0).toUpperCase()}</span>
                     )}
                   </div>
-                  <div className="text-left hidden md:block max-w-[130px] truncate">
-                    <div className="flex items-center gap-1">
+                  <div className="text-left hidden md:block max-w-[210px] xl:max-w-[260px] min-w-0">
+                    <div className="flex items-center gap-1.5">
                       <p className="text-[11px] font-extrabold text-white truncate leading-tight">
                         {currentUser.isMaster ? 'Master Owner' : currentUser.name}
                       </p>
                       {currentUser.isMaster && (
-                        <span className="text-[9px] bg-amber-400/20 text-amber-300 font-bold px-1 py-0.2 rounded border border-amber-400/30">
+                        <span className="text-[9px] bg-amber-400/20 text-amber-300 font-bold px-1.5 py-0.5 rounded border border-amber-400/30">
                           ROOT
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-slate-300 font-mono truncate leading-tight mt-0.5">
+                    <p className="text-[10px] text-slate-300 font-mono truncate leading-tight mt-0.5" title={currentUser.email}>
                       {currentUser.email}
                     </p>
                   </div>

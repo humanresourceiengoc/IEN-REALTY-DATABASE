@@ -1,0 +1,101 @@
+{
+  "entities": {
+    "client": {
+      "title": "ClientProfile",
+      "description": "Corporate client profile record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientName": { "type": "string" },
+        "tradeName": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "dateOfEngagement": { "type": "string" },
+        "cifNo": { "type": "string" },
+        "officeAddress": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "contactNumber": { "type": "string" },
+        "contactEmail": { "type": "string" },
+        "tin": { "type": "string" },
+        "ocnNumber": { "type": "string" },
+        "atpOcn": { "type": "string" },
+        "annualSubDate": { "type": "string" },
+        "annualSubNotes": { "type": "string" },
+        "contractDate": { "type": "string" },
+        "maturityDate": { "type": "string" },
+        "status": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "clientName", "cifNo", "status"]
+    },
+    "document": {
+      "title": "DocumentItem",
+      "description": "Compliance document item and transmittal status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientId": { "type": "string" },
+        "folderId": { "type": "string" },
+        "folderCode": { "type": "string" },
+        "fileName": { "type": "string" },
+        "originalFileName": { "type": "string" },
+        "fileType": { "type": "string" },
+        "fileSize": { "type": "number" },
+        "fileData": { "type": "string" },
+        "uploadedAt": { "type": "string" },
+        "expirationDate": { "type": "string" },
+        "referenceNumber": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "clientId", "folderId", "fileName"]
+    },
+    "accessRequest": {
+      "title": "AccessRequest",
+      "description": "User access approval request to the Master Super Admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "picture": { "type": "string" },
+        "requestedAt": { "type": "string" },
+        "status": { "type": "string" },
+        "reason": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "reviewedBy": { "type": "string" },
+        "grantedRole": { "type": "string" }
+      },
+      "required": ["id", "email", "status", "requestedAt"]
+    },
+    "securitySettings": {
+      "title": "SecurityGateSettings",
+      "description": "Security gatekeeper configuration",
+      "type": "object",
+      "properties": {
+        "masterEmail": { "type": "string" },
+        "requireMasterApproval": { "type": "boolean" },
+        "autoApproveCompanyDomain": { "type": "boolean" },
+        "approvedEmails": { "type": "array" }
+      }
+    }
+  },
+  "firestore": {
+    "/clients/{clientId}": {
+      "schema": { "$ref": "#/entities/client" },
+      "description": "Corporate client profiles in compliance vault"
+    },
+    "/documents/{documentId}": {
+      "schema": { "$ref": "#/entities/document" },
+      "description": "Corporate documents and certificates in vault"
+    },
+    "/access_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/accessRequest" },
+      "description": "User access authorization requests"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/securitySettings" },
+      "description": "System security gatekeeper configuration"
+    }
+  }
+}

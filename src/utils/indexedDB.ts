@@ -1,5 +1,7 @@
 import { ClientProfile, DocumentItem, FolderDefinition } from '../types';
 import { INITIAL_CLIENTS, INITIAL_DOCUMENTS, INITIAL_CUSTOM_FOLDERS } from '../data/seedData';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 
 const DB_NAME = 'IEN_REALTY_COMPLIANCE_DB';
 const DB_VERSION = 1;
@@ -18,6 +20,7 @@ class StorageService {
   private memoryFolders: FolderDefinition[] = [...INITIAL_CUSTOM_FOLDERS];
   private memorySettings: Record<string, unknown> = {};
   private useMemory = false;
+  private isCloudSynced = false;
 
   private openDB(): Promise<IDBDatabase> {
     if (this.useMemory) {
@@ -37,27 +40,27 @@ class StorageService {
 
         request.onupgradeneeded = (event) => {
           try {
-            const db = (event.target as IDBOpenDBRequest).result;
+            const idb = (event.target as IDBOpenDBRequest).result;
 
-            if (!db.objectStoreNames.contains(STORES.CLIENTS)) {
-              const clientStore = db.createObjectStore(STORES.CLIENTS, { keyPath: 'id' });
+            if (!idb.objectStoreNames.contains(STORES.CLIENTS)) {
+              const clientStore = idb.createObjectStore(STORES.CLIENTS, { keyPath: 'id' });
               clientStore.createIndex('clientName', 'clientName', { unique: false });
               clientStore.createIndex('cifNo', 'cifNo', { unique: false });
             }
 
-            if (!db.objectStoreNames.contains(STORES.DOCUMENTS)) {
-              const docStore = db.createObjectStore(STORES.DOCUMENTS, { keyPath: 'id' });
+            if (!idb.objectStoreNames.contains(STORES.DOCUMENTS)) {
+              const docStore = idb.createObjectStore(STORES.DOCUMENTS, { keyPath: 'id' });
               docStore.createIndex('clientId', 'clientId', { unique: false });
               docStore.createIndex('folderId', 'folderId', { unique: false });
               docStore.createIndex('expirationDate', 'expirationDate', { unique: false });
             }
 
-            if (!db.objectStoreNames.contains(STORES.CUSTOM_FOLDERS)) {
-              db.createObjectStore(STORES.CUSTOM_FOLDERS, { keyPath: 'id' });
+            if (!idb.objectStoreNames.contains(STORES.CUSTOM_FOLDERS)) {
+              idb.createObjectStore(STORES.CUSTOM_FOLDERS, { keyPath: 'id' });
             }
 
-            if (!db.objectStoreNames.contains(STORES.SETTINGS)) {
-              db.createObjectStore(STORES.SETTINGS, { keyPath: 'key' });
+            if (!idb.objectStoreNames.contains(STORES.SETTINGS)) {
+              idb.createObjectStore(STORES.SETTINGS, { keyPath: 'key' });
             }
           } catch (e) {
             console.warn('Error upgrading IndexedDB schema:', e);
@@ -65,8 +68,8 @@ class StorageService {
         };
 
         request.onsuccess = (event) => {
-          const db = (event.target as IDBOpenDBRequest).result;
-          resolve(db);
+          const idb = (event.target as IDBOpenDBRequest).result;
+          resolve(idb);
         };
 
         request.onerror = (event) => {
@@ -82,14 +85,15 @@ class StorageService {
     return this.dbPromise;
   }
 
-  // Initialize seed data if database is new
+  // Initialize seed data and sync with Firestore
   public async initialize(): Promise<void> {
     try {
-      const db = await this.openDB();
-      const clients = await this.getClients();
-      if (clients.length === 0) {
-        // Seed clients
-        const tx = db.transaction([STORES.CLIENTS, STORES.DOCUMENTS, STORES.CUSTOM_FOLDERS], 'readwrite');
+      const idb = await this.openDB();
+      const localClients = await this.getClients();
+
+      if (localClients.length === 0) {
+        // Seed initial local data
+        const tx = idb.transaction([STORES.CLIENTS, STORES.DOCUMENTS, STORES.CUSTOM_FOLDERS], 'readwrite');
         const clientStore = tx.objectStore(STORES.CLIENTS);
         const docStore = tx.objectStore(STORES.DOCUMENTS);
         const folderStore = tx.objectStore(STORES.CUSTOM_FOLDERS);
@@ -97,8 +101,8 @@ class StorageService {
         for (const client of INITIAL_CLIENTS) {
           clientStore.put(client);
         }
-        for (const doc of INITIAL_DOCUMENTS) {
-          docStore.put(doc);
+        for (const docItem of INITIAL_DOCUMENTS) {
+          docStore.put(docItem);
         }
         for (const f of INITIAL_CUSTOM_FOLDERS) {
           folderStore.put(f);
@@ -109,9 +113,81 @@ class StorageService {
           tx.onerror = () => rej(tx.error);
         });
       }
+
+      // Sync with Firestore in background
+      this.syncFromCloud().catch((err) => {
+        console.warn('Cloud sync deferred:', err);
+      });
     } catch (e) {
       console.warn('Using memory fallback for data store:', e);
       this.useMemory = true;
+    }
+  }
+
+  // Cloud Synchronization
+  public async syncFromCloud(): Promise<void> {
+    if (this.isCloudSynced) return;
+    try {
+      // Sync clients
+      const clientsSnapshot = await getDocs(collection(db, 'clients'));
+      if (!clientsSnapshot.empty) {
+        for (const docSnap of clientsSnapshot.docs) {
+          const cloudClient = docSnap.data() as ClientProfile;
+          await this.saveClientLocal(cloudClient);
+        }
+      }
+
+      // Sync documents
+      const docsSnapshot = await getDocs(collection(db, 'documents'));
+      if (!docsSnapshot.empty) {
+        for (const docSnap of docsSnapshot.docs) {
+          const cloudDoc = docSnap.data() as DocumentItem;
+          await this.saveDocumentLocal(cloudDoc);
+        }
+      }
+      this.isCloudSynced = true;
+    } catch (e) {
+      // Offline or first run fallback
+      console.info('Firestore initial fetch status:', e);
+    }
+  }
+
+  // Local helper without triggering cloud loop
+  private async saveClientLocal(client: ClientProfile): Promise<void> {
+    const idx = this.memoryClients.findIndex((c) => c.id === client.id);
+    if (idx >= 0) {
+      this.memoryClients[idx] = client;
+    } else {
+      this.memoryClients.unshift(client);
+    }
+
+    if (!this.useMemory) {
+      try {
+        const idb = await this.openDB();
+        const tx = idb.transaction(STORES.CLIENTS, 'readwrite');
+        tx.objectStore(STORES.CLIENTS).put(client);
+      } catch (err) {
+        console.warn('Local saveClient failed:', err);
+      }
+    }
+  }
+
+  private async saveDocumentLocal(docItem: DocumentItem): Promise<void> {
+    const idx = this.memoryDocs.findIndex((d) => d.id === docItem.id);
+    if (idx >= 0) {
+      this.memoryDocs[idx] = docItem;
+    } else {
+      this.memoryDocs.unshift(docItem);
+    }
+
+    if (!this.useMemory) {
+      try {
+        const idb = await this.openDB();
+        const tx = idb.transaction(STORES.DOCUMENTS, 'readwrite');
+        tx.objectStore(STORES.DOCUMENTS).put(docItem);
+      } catch (err) {
+        console.warn('Local saveDocument failed:', err);
+      }
     }
   }
 
@@ -119,9 +195,9 @@ class StorageService {
   public async getClients(): Promise<ClientProfile[]> {
     if (this.useMemory) return [...this.memoryClients];
     try {
-      const db = await this.openDB();
+      const idb = await this.openDB();
       return await new Promise((resolve, reject) => {
-        const tx = db.transaction(STORES.CLIENTS, 'readonly');
+        const tx = idb.transaction(STORES.CLIENTS, 'readonly');
         const store = tx.objectStore(STORES.CLIENTS);
         const request = store.getAll();
         request.onsuccess = () => resolve(request.result || []);
@@ -135,9 +211,9 @@ class StorageService {
   public async getClientById(id: string): Promise<ClientProfile | null> {
     if (this.useMemory) return this.memoryClients.find((c) => c.id === id) || null;
     try {
-      const db = await this.openDB();
+      const idb = await this.openDB();
       return await new Promise((resolve, reject) => {
-        const tx = db.transaction(STORES.CLIENTS, 'readonly');
+        const tx = idb.transaction(STORES.CLIENTS, 'readonly');
         const store = tx.objectStore(STORES.CLIENTS);
         const request = store.get(id);
         request.onsuccess = () => resolve(request.result || null);
@@ -150,26 +226,13 @@ class StorageService {
 
   public async saveClient(client: ClientProfile): Promise<void> {
     const updated = { ...client, updatedAt: new Date().toISOString() };
-    const idx = this.memoryClients.findIndex((c) => c.id === client.id);
-    if (idx >= 0) {
-      this.memoryClients[idx] = updated;
-    } else {
-      this.memoryClients.unshift(updated);
-    }
+    await this.saveClientLocal(updated);
 
-    if (!this.useMemory) {
-      try {
-        const db = await this.openDB();
-        await new Promise<void>((resolve, reject) => {
-          const tx = db.transaction(STORES.CLIENTS, 'readwrite');
-          const store = tx.objectStore(STORES.CLIENTS);
-          const request = store.put(updated);
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
-        });
-      } catch (e) {
-        console.warn('Falling back to memory for saveClient:', e);
-      }
+    // Save to Firestore Cloud
+    try {
+      await setDoc(doc(db, 'clients', client.id), updated);
+    } catch (e) {
+      console.warn('Cloud sync error for saveClient:', e);
     }
   }
 
@@ -179,8 +242,8 @@ class StorageService {
 
     if (!this.useMemory) {
       try {
-        const db = await this.openDB();
-        const tx = db.transaction([STORES.CLIENTS, STORES.DOCUMENTS], 'readwrite');
+        const idb = await this.openDB();
+        const tx = idb.transaction([STORES.CLIENTS, STORES.DOCUMENTS], 'readwrite');
         const clientStore = tx.objectStore(STORES.CLIENTS);
         const docStore = tx.objectStore(STORES.DOCUMENTS);
 
@@ -202,6 +265,13 @@ class StorageService {
         console.warn('Falling back to memory for deleteClient:', e);
       }
     }
+
+    // Delete from Firestore Cloud
+    try {
+      await deleteDoc(doc(db, 'clients', clientId));
+    } catch (e) {
+      console.warn('Cloud sync error for deleteClient:', e);
+    }
   }
 
   // Documents API
@@ -210,9 +280,9 @@ class StorageService {
       return clientId ? this.memoryDocs.filter((d) => d.clientId === clientId) : [...this.memoryDocs];
     }
     try {
-      const db = await this.openDB();
+      const idb = await this.openDB();
       return await new Promise((resolve, reject) => {
-        const tx = db.transaction(STORES.DOCUMENTS, 'readonly');
+        const tx = idb.transaction(STORES.DOCUMENTS, 'readonly');
         const store = tx.objectStore(STORES.DOCUMENTS);
 
         if (clientId) {
@@ -231,27 +301,14 @@ class StorageService {
     }
   }
 
-  public async saveDocument(doc: DocumentItem): Promise<void> {
-    const idx = this.memoryDocs.findIndex((d) => d.id === doc.id);
-    if (idx >= 0) {
-      this.memoryDocs[idx] = doc;
-    } else {
-      this.memoryDocs.unshift(doc);
-    }
+  public async saveDocument(docItem: DocumentItem): Promise<void> {
+    await this.saveDocumentLocal(docItem);
 
-    if (!this.useMemory) {
-      try {
-        const db = await this.openDB();
-        await new Promise<void>((resolve, reject) => {
-          const tx = db.transaction(STORES.DOCUMENTS, 'readwrite');
-          const store = tx.objectStore(STORES.DOCUMENTS);
-          const req = store.put(doc);
-          req.onsuccess = () => resolve();
-          req.onerror = () => reject(req.error);
-        });
-      } catch (e) {
-        console.warn('Falling back to memory for saveDocument:', e);
-      }
+    // Save to Firestore Cloud
+    try {
+      await setDoc(doc(db, 'documents', docItem.id), docItem);
+    } catch (e) {
+      console.warn('Cloud sync error for saveDocument:', e);
     }
   }
 
@@ -260,9 +317,9 @@ class StorageService {
 
     if (!this.useMemory) {
       try {
-        const db = await this.openDB();
+        const idb = await this.openDB();
         await new Promise<void>((resolve, reject) => {
-          const tx = db.transaction(STORES.DOCUMENTS, 'readwrite');
+          const tx = idb.transaction(STORES.DOCUMENTS, 'readwrite');
           const store = tx.objectStore(STORES.DOCUMENTS);
           const req = store.delete(docId);
           req.onsuccess = () => resolve();
@@ -272,6 +329,13 @@ class StorageService {
         console.warn('Falling back to memory for deleteDocument:', e);
       }
     }
+
+    // Delete from Firestore Cloud
+    try {
+      await deleteDoc(doc(db, 'documents', docId));
+    } catch (e) {
+      console.warn('Cloud sync error for deleteDocument:', e);
+    }
   }
 
   // Custom Folders API
@@ -280,9 +344,9 @@ class StorageService {
       return this.memoryFolders.filter((f) => f.id !== 'folder_cust_insurance' && f.code !== '09');
     }
     try {
-      const db = await this.openDB();
+      const idb = await this.openDB();
       const rawFolders: FolderDefinition[] = await new Promise((resolve, reject) => {
-        const tx = db.transaction(STORES.CUSTOM_FOLDERS, 'readonly');
+        const tx = idb.transaction(STORES.CUSTOM_FOLDERS, 'readonly');
         const store = tx.objectStore(STORES.CUSTOM_FOLDERS);
         const req = store.getAll();
         req.onsuccess = () => resolve(req.result || []);
@@ -292,7 +356,7 @@ class StorageService {
       // Purge legacy folder 09 if present
       const cleaned = rawFolders.filter((f) => f.id !== 'folder_cust_insurance' && f.code !== '09');
       if (rawFolders.some((f) => f.id === 'folder_cust_insurance' || f.code === '09')) {
-        const delTx = db.transaction(STORES.CUSTOM_FOLDERS, 'readwrite');
+        const delTx = idb.transaction(STORES.CUSTOM_FOLDERS, 'readwrite');
         delTx.objectStore(STORES.CUSTOM_FOLDERS).delete('folder_cust_insurance');
       }
       return cleaned;
@@ -311,9 +375,9 @@ class StorageService {
 
     if (!this.useMemory) {
       try {
-        const db = await this.openDB();
+        const idb = await this.openDB();
         await new Promise<void>((resolve, reject) => {
-          const tx = db.transaction(STORES.CUSTOM_FOLDERS, 'readwrite');
+          const tx = idb.transaction(STORES.CUSTOM_FOLDERS, 'readwrite');
           const store = tx.objectStore(STORES.CUSTOM_FOLDERS);
           const req = store.put(folder);
           req.onsuccess = () => resolve();
@@ -330,9 +394,9 @@ class StorageService {
 
     if (!this.useMemory) {
       try {
-        const db = await this.openDB();
+        const idb = await this.openDB();
         await new Promise<void>((resolve, reject) => {
-          const tx = db.transaction(STORES.CUSTOM_FOLDERS, 'readwrite');
+          const tx = idb.transaction(STORES.CUSTOM_FOLDERS, 'readwrite');
           const store = tx.objectStore(STORES.CUSTOM_FOLDERS);
           const req = store.delete(folderId);
           req.onsuccess = () => resolve();
@@ -346,13 +410,13 @@ class StorageService {
 
   // General Settings / App Logo
   public async getSetting<T>(key: string, defaultValue: T): Promise<T> {
-    if (this.useMemory) {
-      return (this.memorySettings[key] as T) !== undefined ? (this.memorySettings[key] as T) : defaultValue;
+    if (this.memorySettings[key] !== undefined) {
+      return this.memorySettings[key] as T;
     }
     try {
-      const db = await this.openDB();
+      const idb = await this.openDB();
       return await new Promise((resolve) => {
-        const tx = db.transaction(STORES.SETTINGS, 'readonly');
+        const tx = idb.transaction(STORES.SETTINGS, 'readonly');
         const store = tx.objectStore(STORES.SETTINGS);
         const req = store.get(key);
         req.onsuccess = () => {
@@ -374,9 +438,9 @@ class StorageService {
 
     if (!this.useMemory) {
       try {
-        const db = await this.openDB();
+        const idb = await this.openDB();
         await new Promise<void>((resolve, reject) => {
-          const tx = db.transaction(STORES.SETTINGS, 'readwrite');
+          const tx = idb.transaction(STORES.SETTINGS, 'readwrite');
           const store = tx.objectStore(STORES.SETTINGS);
           const req = store.put({ key, value });
           req.onsuccess = () => resolve();
@@ -390,3 +454,4 @@ class StorageService {
 }
 
 export const dbService = new StorageService();
+

@@ -1,4 +1,7 @@
 import { AccessRequest, UserRole, UserSession } from '../types';
+import { db, auth, googleAuthProvider } from '../lib/firebase';
+import { doc, setDoc, getDocs, collection, deleteDoc } from 'firebase/firestore';
+import { signInWithPopup } from 'firebase/auth';
 
 export const MASTER_GOOGLE_EMAIL = 'humanresource.iengoc@gmail.com';
 export const MASTER_GOOGLE_NAME = 'IEN Realty Corporate HR (Master Admin)';
@@ -20,6 +23,31 @@ class AuthService {
       if (!approved.includes(MASTER_GOOGLE_EMAIL)) {
         this.addApprovedEmail(MASTER_GOOGLE_EMAIL);
       }
+      this.syncAccessRequestsFromCloud().catch(() => {});
+    }
+  }
+
+  public async syncAccessRequestsFromCloud(): Promise<void> {
+    try {
+      const snapshot = await getDocs(collection(db, 'access_requests'));
+      if (!snapshot.empty) {
+        const cloudRequests: AccessRequest[] = [];
+        snapshot.forEach((docSnap) => {
+          cloudRequests.push(docSnap.data() as AccessRequest);
+        });
+        if (cloudRequests.length > 0) {
+          const localRequests = this.getAccessRequests();
+          const merged = [...cloudRequests];
+          localRequests.forEach((loc) => {
+            if (!merged.some((m) => m.id === loc.id || m.email === loc.email)) {
+              merged.push(loc);
+            }
+          });
+          localStorage.setItem(STORAGE_KEYS.ACCESS_REQUESTS, JSON.stringify(merged));
+        }
+      }
+    } catch (e) {
+      console.info('Cloud access requests sync status:', e);
     }
   }
 
@@ -110,6 +138,23 @@ class AuthService {
     return masterSession;
   }
 
+  public async loginWithFirebasePopup(): Promise<UserSession | null> {
+    try {
+      const result = await signInWithPopup(auth, googleAuthProvider);
+      const user = result.user;
+      if (user.email) {
+        return this.loginWithGoogleEmail(
+          user.email,
+          user.displayName || undefined,
+          user.photoURL || undefined
+        );
+      }
+    } catch (error) {
+      console.warn('Firebase popup sign-in note:', error);
+    }
+    return null;
+  }
+
   public loginWithGoogleEmail(
     email: string,
     name?: string,
@@ -195,6 +240,14 @@ class AuthService {
     }
 
     localStorage.setItem(STORAGE_KEYS.ACCESS_REQUESTS, JSON.stringify(requests));
+
+    // Save to Firestore Cloud
+    try {
+      setDoc(doc(db, 'access_requests', newRequest.id), newRequest).catch(() => {});
+    } catch (e) {
+      console.warn('Error syncing access request to Firestore:', e);
+    }
+
     return newRequest;
   }
 
@@ -210,6 +263,13 @@ class AuthService {
 
     this.addApprovedEmail(target.email);
     localStorage.setItem(STORAGE_KEYS.ACCESS_REQUESTS, JSON.stringify(requests));
+
+    // Update in Firestore Cloud
+    try {
+      setDoc(doc(db, 'access_requests', target.id), target).catch(() => {});
+    } catch (e) {
+      console.warn('Error updating access request in Firestore:', e);
+    }
 
     // If current session is this user, upgrade session immediately
     const current = this.getCurrentUser();
@@ -234,6 +294,13 @@ class AuthService {
     this.removeApprovedEmail(target.email);
     localStorage.setItem(STORAGE_KEYS.ACCESS_REQUESTS, JSON.stringify(requests));
 
+    // Update in Firestore Cloud
+    try {
+      setDoc(doc(db, 'access_requests', target.id), target).catch(() => {});
+    } catch (e) {
+      console.warn('Error updating access request in Firestore:', e);
+    }
+
     const current = this.getCurrentUser();
     if (current && current.email.toLowerCase() === target.email.toLowerCase()) {
       this.setCurrentUser({
@@ -247,6 +314,13 @@ class AuthService {
   public deleteAccessRequest(requestId: string): void {
     const requests = this.getAccessRequests().filter((r) => r.id !== requestId);
     localStorage.setItem(STORAGE_KEYS.ACCESS_REQUESTS, JSON.stringify(requests));
+
+    // Delete in Firestore Cloud
+    try {
+      deleteDoc(doc(db, 'access_requests', requestId)).catch(() => {});
+    } catch (e) {
+      console.warn('Error deleting access request in Firestore:', e);
+    }
   }
 
   public subscribe(listener: (user: UserSession | null) => void): () => void {
@@ -262,3 +336,4 @@ class AuthService {
 }
 
 export const authService = new AuthService();
+
