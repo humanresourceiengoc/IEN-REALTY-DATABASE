@@ -315,17 +315,17 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Quick Actions & Notification Bell */}
+          {/* Quick Actions & Always-Visible Sign Out Button */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             
             {/* Insert File Button */}
             <button
               id="header-insert-file-btn"
               onClick={onOpenUploadModal}
-              className="bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-bold px-2.5 sm:px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition shadow-sm shadow-sky-500/20 shrink-0"
+              className="bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-bold px-2 sm:px-2.5 lg:px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 transition shadow-sm shadow-sky-500/20 shrink-0"
               title="Insert PDF or Document File"
             >
-              <Upload className="w-3.5 h-3.5" />
+              <Upload className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden sm:inline">Insert File</span>
             </button>
 
@@ -333,10 +333,10 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="header-new-client-btn"
               onClick={onOpenNewClientModal}
-              className="hidden sm:flex bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-2.5 sm:px-3 py-1.5 rounded-xl text-xs items-center gap-1.5 border border-slate-700 transition shrink-0"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-2 sm:px-2.5 lg:px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 border border-slate-700 transition shrink-0"
               title="Add New Client Profile"
             >
-              <Plus className="w-3.5 h-3.5 text-sky-400" />
+              <Plus className="w-3.5 h-3.5 text-sky-400 shrink-0" />
               <span className="hidden md:inline">Add Client</span>
             </button>
 
@@ -345,10 +345,10 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 id="header-gatekeeper-btn"
                 onClick={onOpenSecurityModal}
-                className="relative px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border border-amber-400/50 text-amber-300 text-xs font-bold transition flex items-center gap-1.5 shadow-sm shadow-amber-500/10 shrink-0"
+                className="relative px-2 sm:px-2.5 lg:px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border border-amber-400/50 text-amber-300 text-xs font-bold transition flex items-center gap-1 shadow-sm shadow-amber-500/10 shrink-0"
                 title="Open Master Gatekeeper & Access Verification Center"
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span className="hidden sm:inline">Gatekeeper</span>
                 {pendingRequestsCount > 0 && (
                   <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-600 text-[9px] font-extrabold text-white animate-pulse">
@@ -365,7 +365,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="relative p-1.5 sm:p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition focus:outline-none focus:ring-2 focus:ring-sky-400 shrink-0"
               title="Deadline Alerts & Push Notifications"
             >
-              <Bell className="w-4 h-4 text-sky-300" />
+              <Bell className="w-4 h-4 text-sky-300 shrink-0" />
               {urgentAlertsCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-600 text-[9px] font-bold text-white shadow-lg animate-pulse">
                   {urgentAlertsCount > 9 ? '9+' : urgentAlertsCount}
@@ -478,7 +478,7 @@ export const Header: React.FC<HeaderProps> = ({
                         </button>
                       )}
 
-                      {/* Sign Out Button */}
+                      {/* Sign Out Button inside dropdown */}
                       <button
                         type="button"
                         id="user-menu-signout-btn"
@@ -486,10 +486,13 @@ export const Header: React.FC<HeaderProps> = ({
                           setShowUserMenu(false);
                           onLogout();
                         }}
-                        className="w-full px-3 py-2 text-xs text-left font-bold text-rose-400 hover:bg-rose-950/50 rounded-xl transition flex items-center gap-2 border border-rose-500/20 bg-rose-950/20"
+                        className="w-full px-3 py-2 text-xs text-left font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition flex items-center justify-between shadow-sm shadow-rose-600/30"
                       >
-                        <LogOut className="w-4 h-4" />
-                        <span>Sign Out Account</span>
+                        <span className="flex items-center gap-2">
+                          <LogOut className="w-4 h-4 text-white" />
+                          <span>Sign Out Account</span>
+                        </span>
+                        <span className="text-[10px] font-extrabold uppercase bg-rose-700/80 px-2 py-0.5 rounded text-white">Log Out</span>
                       </button>
                     </div>
                   </div>
@@ -503,11 +506,11 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 id="header-direct-signout-btn"
                 onClick={onLogout}
-                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-600/90 hover:bg-rose-500 active:bg-rose-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm shadow-rose-600/20 shrink-0"
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white text-xs font-extrabold transition flex items-center gap-1.5 shadow-md shadow-rose-600/30 shrink-0 border border-rose-500/50"
                 title="Sign Out from IEN Realty Inc. Database"
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Sign Out</span>
+                <LogOut className="w-3.5 h-3.5 shrink-0" />
+                <span className="inline">Sign Out</span>
               </button>
             )}
 

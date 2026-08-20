@@ -43,6 +43,7 @@ interface FolderGridProps {
   onDeleteDocument: (docId: string) => void;
   onQuickRename: (docId: string, newName: string) => void;
   onOpenTransmittal?: (doc: DocumentItem) => void;
+  onBackToDirectory?: () => void;
 }
 
 export const FolderGrid: React.FC<FolderGridProps> = ({
@@ -57,6 +58,7 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
   onDeleteDocument,
   onQuickRename,
   onOpenTransmittal,
+  onBackToDirectory,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'in_custody' | 'transmitted' | 'returned' | 'soon' | 'expired'>('all');
@@ -167,7 +169,19 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {/* Back to Master List button */}
+              {onBackToDirectory && (
+                <button
+                  onClick={onBackToDirectory}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition flex items-center gap-1.5 shadow-sm active:scale-95 group"
+                  title="Return to Master List Directory"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-sky-400 group-hover:-translate-x-0.5 transition-transform" />
+                  <span>Master List</span>
+                </button>
+              )}
+
               {/* View All Documents button */}
               <button
                 onClick={() => onSelectFolder('all_files')}
@@ -390,17 +404,30 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
         <div>
           {/* Top Breadcrumb & Switcher Navigation Bar */}
           <div className="p-4 bg-slate-900 text-white flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Back to Master List Button */}
+              {onBackToDirectory && (
+                <button
+                  onClick={onBackToDirectory}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs transition active:scale-95 shadow-sm"
+                  title="Return to Master List Directory"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Master List</span>
+                </button>
+              )}
+
               {/* Back to All Folders Button */}
               <button
                 onClick={() => onSelectFolder(null)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-xs transition border border-slate-700 active:scale-95 shadow-sm"
+                title="Return to 01-08 Folders Overview"
               >
                 <ArrowLeft className="w-4 h-4 text-sky-400" />
                 <span>All Folders</span>
               </button>
 
-              <div className="h-4 w-px bg-slate-700" />
+              <div className="h-4 w-px bg-slate-700 hidden sm:block" />
 
               {/* Breadcrumb Path */}
               <div className="flex items-center gap-1.5 text-xs">

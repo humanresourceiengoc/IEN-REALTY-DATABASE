@@ -497,6 +497,7 @@ export default function App() {
                 onQuickUpdateName={handleQuickUpdateName}
                 onOpenUploadModal={() => handleOpenUploadModal()}
                 onOpenComplianceSummary={() => setIsComplianceSummaryOpen(true)}
+                onBackToDirectory={() => setCurrentView('directory')}
               />
 
               {/* Compliance Folder Directory & In-Folder PDF Document Explorer */}
@@ -512,6 +513,7 @@ export default function App() {
                 onDeleteDocument={handleDeleteDocument}
                 onQuickRename={handleQuickRenameDocument}
                 onOpenTransmittal={handleOpenTransmittal}
+                onBackToDirectory={() => setCurrentView('directory')}
               />
             </div>
           ) : (

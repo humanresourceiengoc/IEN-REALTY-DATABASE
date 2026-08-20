@@ -19,7 +19,8 @@ import {
   UserCheck,
   Building2,
   CalendarCheck,
-  AlertTriangle
+  AlertTriangle,
+  ArrowLeft
 } from 'lucide-react';
 import { ClientProfile } from '../types';
 import { calculateDaysRemaining, formatDateDisplay, formatRemainingDaysText, getUrgencySeverity } from '../utils/dateUtils';
@@ -30,6 +31,7 @@ interface ClientProfileCardProps {
   onQuickUpdateName: (newName: string) => void;
   onOpenUploadModal: () => void;
   onOpenComplianceSummary: () => void;
+  onBackToDirectory?: () => void;
 }
 
 export const ClientProfileCard: React.FC<ClientProfileCardProps> = ({
@@ -38,6 +40,7 @@ export const ClientProfileCard: React.FC<ClientProfileCardProps> = ({
   onQuickUpdateName,
   onOpenUploadModal,
   onOpenComplianceSummary,
+  onBackToDirectory,
 }) => {
   const [isEditingNameInline, setIsEditingNameInline] = useState(false);
   const [inlineName, setInlineName] = useState(client.clientName);
@@ -194,6 +197,17 @@ export const ClientProfileCard: React.FC<ClientProfileCardProps> = ({
 
           {/* Right: Quick Action Buttons */}
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {onBackToDirectory && (
+              <button
+                type="button"
+                onClick={onBackToDirectory}
+                className="bg-sky-600 hover:bg-sky-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs sm:text-sm flex items-center gap-1.5 transition shadow-sm active:scale-95 group"
+                title="Return to Master List Directory"
+              >
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                <span>Back to Master List</span>
+              </button>
+            )}
             <button
               onClick={onEditClient}
               className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium px-3.5 py-2 rounded-xl text-xs sm:text-sm flex items-center gap-1.5 transition shadow-sm"

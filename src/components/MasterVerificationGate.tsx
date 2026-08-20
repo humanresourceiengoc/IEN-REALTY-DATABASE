@@ -216,27 +216,27 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
               <span>Check Verification Approval Status</span>
             </button>
 
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleMasterOneClickLogin}
-                className="py-2.5 px-3 bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 hover:text-white border border-sky-500/40 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5"
-                title={`Switch directly to Master Owner: ${MASTER_GOOGLE_EMAIL}`}
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>Switch to Master</span>
-              </button>
-
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => {
                   authService.logout();
                   onUserAuthenticated(null as unknown as UserSession);
                 }}
-                className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition flex items-center justify-center gap-1.5"
+                className="flex-1 py-3 px-4 bg-rose-600/90 hover:bg-rose-500 active:bg-rose-700 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-rose-600/20"
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out</span>
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out / Back to Sign In</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleMasterOneClickLogin}
+                className="py-3 px-4 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-md shadow-sky-600/20"
+                title={`Switch directly to Master Owner: ${MASTER_GOOGLE_EMAIL}`}
+              >
+                <KeyRound className="w-4 h-4" />
+                <span>Master Admin Login</span>
               </button>
             </div>
           </div>
