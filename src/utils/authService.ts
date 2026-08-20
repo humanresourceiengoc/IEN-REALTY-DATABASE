@@ -103,16 +103,32 @@ class AuthService {
     }
   }
 
-  public getCurrentUser(): UserSession | null {
+  public getDefaultMasterSession(): UserSession {
+    return {
+      email: MASTER_GOOGLE_EMAIL,
+      name: MASTER_GOOGLE_NAME,
+      picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      role: 'master_admin',
+      isMaster: true,
+      status: 'active',
+      loginTime: new Date().toISOString(),
+    };
+  }
+
+  public getCurrentUser(): UserSession {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
       if (raw) {
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.status === 'active') {
+          return parsed;
+        }
       }
     } catch (e) {
       console.warn('Error reading current user:', e);
     }
-    return null;
+    const defaultUser = this.getDefaultMasterSession();
+    return defaultUser;
   }
 
   public setCurrentUser(user: UserSession | null): void {

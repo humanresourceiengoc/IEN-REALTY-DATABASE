@@ -314,17 +314,7 @@ export default function App() {
     );
   }
 
-  // MASTER AUTHENTICATION SECURITY GATE:
-  // If not logged in OR if user is unverified / pending approval, show the Master Verification Gate
-  if (!currentUser || currentUser.status !== 'active') {
-    return (
-      <MasterVerificationGate
-        currentUser={currentUser}
-        onUserAuthenticated={(user) => setCurrentUser(user)}
-      />
-    );
-  }
-
+  // Main Application Workspace (Direct Access Enabled)
   return (
     <div className="min-h-screen bg-slate-100/90 text-slate-900 font-sans antialiased selection:bg-sky-400 selection:text-slate-950">
       
