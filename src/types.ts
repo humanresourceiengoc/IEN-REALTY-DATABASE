@@ -67,6 +67,8 @@ export interface TransmittalInfo {
   history: TransmittalMovement[];
 }
 
+export type DocumentCopyType = 'Original' | 'Certified True Copy' | 'Photocopy' | 'Duplicate Copy';
+
 export interface DocumentItem {
   id: string;
   clientId: string;
@@ -77,6 +79,9 @@ export interface DocumentItem {
   fileType: string; // 'application/pdf', 'image/png', etc.
   fileSize: number;
   fileData: string; // base64 or blob URL
+  pages?: string[]; // Array of base64 page images or data URIs for multi-page documents
+  pageCount?: number; // Total number of pages
+  copyType?: DocumentCopyType; // 'Original' | 'Certified True Copy' | 'Photocopy' | 'Duplicate Copy'
   uploadedAt: string;
   startDate?: string; // YYYY-MM-DD (Start Date / Date Issued / Effective Date)
   expirationDate?: string; // YYYY-MM-DD (End Date / Expiry Date)

@@ -23,7 +23,11 @@ import {
   ChevronRight,
   Send,
   RotateCcw,
-  Archive
+  Archive,
+  Stamp,
+  Copy,
+  FileBadge,
+  Layers
 } from 'lucide-react';
 import { DocumentItem, FolderDefinition } from '../types';
 import { calculateDaysRemaining, formatDateDisplay, formatRemainingDaysText, getUrgencySeverity } from '../utils/dateUtils';
@@ -362,10 +366,34 @@ export const FileList: React.FC<FileListProps> = ({
                             </div>
                           )}
 
-                          {/* Reference Number & Notes */}
-                          <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-slate-500">
+                          {/* Copy Type & Page Count Badges, Reference Number & Notes */}
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-slate-500">
+                            {/* Copy Type Badge */}
+                            {doc.copyType && (
+                              <span className={`inline-flex items-center gap-1 font-bold text-[10px] px-1.5 py-0.5 rounded border ${
+                                doc.copyType === 'Original' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                                doc.copyType === 'Certified True Copy' ? 'bg-purple-50 text-purple-800 border-purple-200' :
+                                doc.copyType === 'Photocopy' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                                'bg-sky-50 text-sky-800 border-sky-200'
+                              }`}>
+                                {doc.copyType === 'Original' && <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />}
+                                {doc.copyType === 'Certified True Copy' && <FileBadge className="w-2.5 h-2.5 text-purple-600" />}
+                                {doc.copyType === 'Photocopy' && <Copy className="w-2.5 h-2.5 text-amber-600" />}
+                                {doc.copyType === 'Duplicate Copy' && <FileText className="w-2.5 h-2.5 text-sky-600" />}
+                                <span>{doc.copyType}</span>
+                              </span>
+                            )}
+
+                            {/* Multi-Page Indicator */}
+                            {(doc.pageCount || (doc.pages && doc.pages.length > 0)) && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                <Layers className="w-2.5 h-2.5 text-sky-600" />
+                                <span>{doc.pages?.length || doc.pageCount || 1} {(doc.pages?.length || doc.pageCount || 1) === 1 ? 'Page' : 'Pages'}</span>
+                              </span>
+                            )}
+
                             {doc.referenceNumber && (
-                              <span className="font-mono font-medium bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 text-slate-700">
+                              <span className="font-mono font-medium bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 text-slate-700 text-[10px]">
                                 Ref: {doc.referenceNumber}
                               </span>
                             )}

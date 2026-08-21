@@ -20,11 +20,18 @@ import {
   FileCheck2,
   ExternalLink,
   ShieldCheck,
-  Trash2
+  Trash2,
+  Layers,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Stamp,
+  Copy,
+  FileBadge
 } from 'lucide-react';
-import { DocumentItem, FolderDefinition } from '../types';
+import { DocumentItem, FolderDefinition, DocumentCopyType } from '../types';
 import { addMonthsToDate, addYearsToDate, getTodayDateString } from '../utils/dateUtils';
-import { generateSamplePdfDataUri } from '../data/seedData';
+import { generateSamplePdfDataUri, generateSamplePageImage } from '../data/seedData';
 
 interface FileUploadModalProps {
   isOpen: boolean;
@@ -57,6 +64,9 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
   const [fileType, setFileType] = useState('application/pdf');
   const [fileSize, setFileSize] = useState(0);
   const [fileData, setFileData] = useState('');
+  const [pages, setPages] = useState<string[]>([]);
+  const [activePageIndex, setActivePageIndex] = useState(0);
+  const [copyType, setCopyType] = useState<DocumentCopyType>('Original');
   const [startDate, setStartDate] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
   const [isPermanent, setIsPermanent] = useState(false);
@@ -78,6 +88,9 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
       setFileType(editingDoc.fileType);
       setFileSize(editingDoc.fileSize);
       setFileData(editingDoc.fileData);
+      setPages(editingDoc.pages && editingDoc.pages.length > 0 ? editingDoc.pages : (editingDoc.fileData ? [editingDoc.fileData] : []));
+      setActivePageIndex(0);
+      setCopyType(editingDoc.copyType || 'Original');
       setStartDate(editingDoc.startDate || '');
       setExpirationDate(editingDoc.expirationDate || '');
       setIsPermanent(!!editingDoc.isPermanent);
@@ -90,6 +103,9 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
       setFileType('application/pdf');
       setFileSize(0);
       setFileData('');
+      setPages([]);
+      setActivePageIndex(0);
+      setCopyType('Original');
       setStartDate(getTodayDateString());
       setExpirationDate('');
       setIsPermanent(false);
@@ -104,21 +120,86 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFileChange = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      setFileData(base64);
-      setOriginalFileName(file.name);
-      if (!fileName || fileName.trim() === '') {
-        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
-        setFileName(nameWithoutExt);
+  const handleFileChange = (fileList: FileList | File[]) => {
+    const files = Array.from(fileList);
+    if (files.length === 0) return;
+
+    if (files.length === 1) {
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        setFileData(base64);
+        setPages((prev) => (prev.length === 0 ? [base64] : [base64, ...prev.slice(1)]));
+        setOriginalFileName(file.name);
+        if (!fileName || fileName.trim() === '') {
+          const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+          setFileName(nameWithoutExt);
+        }
+        setFileType(file.type || 'application/pdf');
+        setFileSize(file.size);
+        setErrorMsg('');
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // Multiple files uploaded as multi-page document
+      const loadedPages: string[] = [];
+      let totalSize = 0;
+      let loadedCount = 0;
+
+      files.forEach((file, idx) => {
+        totalSize += file.size;
+        const reader = new FileReader();
+        reader.onload = () => {
+          loadedPages[idx] = reader.result as string;
+          loadedCount++;
+          if (loadedCount === files.length) {
+            setPages(loadedPages.filter(Boolean));
+            setFileData(loadedPages[0]);
+            setOriginalFileName(`${files.length} Pages Document (${files[0].name})`);
+            if (!fileName || fileName.trim() === '') {
+              const nameWithoutExt = files[0].name.replace(/\.[^/.]+$/, '');
+              setFileName(`${nameWithoutExt} (${files.length} Pages)`);
+            }
+            setFileType(files[0].type || 'application/pdf');
+            setFileSize(totalSize);
+            setActivePageIndex(0);
+            setErrorMsg('');
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const handleAddAdditionalPage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        setPages((prev) => {
+          const updated = [...prev, base64];
+          setActivePageIndex(updated.length - 1);
+          return updated;
+        });
+        setFileSize((prev) => prev + file.size);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemovePage = (indexToRemove: number) => {
+    setPages((prev) => {
+      const updated = prev.filter((_, i) => i !== indexToRemove);
+      if (activePageIndex >= updated.length) {
+        setActivePageIndex(Math.max(0, updated.length - 1));
       }
-      setFileType(file.type || 'application/pdf');
-      setFileSize(file.size);
-      setErrorMsg('');
-    };
-    reader.readAsDataURL(file);
+      if (updated.length > 0) {
+        setFileData(updated[0]);
+      }
+      return updated;
+    });
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -135,19 +216,25 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileChange(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileChange(e.dataTransfer.files);
     }
   };
 
   const handleGenerateSamplePdf = () => {
     const titleToUse = fileName || 'IEN REALTY INC. COMPLIANCE ATTACHMENT';
-    const sampleUri = generateSamplePdfDataUri(titleToUse, `Client: ${clientName}`);
+    const sampleUri = generateSamplePdfDataUri(titleToUse, `Client: ${clientName}`, 3);
+    const samplePage1 = generateSamplePageImage(titleToUse, `Client: ${clientName} - Page 1 of 3`, 1, 3);
+    const samplePage2 = generateSamplePageImage(titleToUse, `Client: ${clientName} - Page 2 of 3`, 2, 3);
+    const samplePage3 = generateSamplePageImage(titleToUse, `Client: ${clientName} - Page 3 of 3`, 3, 3);
+
     setFileData(sampleUri);
+    setPages([samplePage1, samplePage2, samplePage3]);
+    setActivePageIndex(0);
     setOriginalFileName(`${titleToUse.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
     if (!fileName) setFileName(titleToUse);
     setFileType('application/pdf');
-    setFileSize(350000);
+    setFileSize(420000);
     setErrorMsg('');
   };
 
@@ -183,12 +270,13 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
       return;
     }
 
-    if (!fileData) {
+    if (!fileData && pages.length === 0) {
       setErrorMsg('Please upload a file or click "Generate Sample PDF" to preview.');
       return;
     }
 
     const selectedFolder = folders.find((f) => f.id === selectedFolderId);
+    const resolvedPages = pages.length > 0 ? pages : (fileData ? [fileData] : []);
 
     const docToSave: DocumentItem = {
       id: editingDoc ? editingDoc.id : `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -199,7 +287,10 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
       originalFileName: originalFileName || `${fileName.trim()}.pdf`,
       fileType: fileType || 'application/pdf',
       fileSize: fileSize || 350000,
-      fileData,
+      fileData: fileData || resolvedPages[0],
+      pages: resolvedPages,
+      pageCount: resolvedPages.length,
+      copyType: copyType,
       uploadedAt: editingDoc ? editingDoc.uploadedAt : new Date().toISOString(),
       startDate: startDate || undefined,
       expirationDate: isPermanent ? undefined : (expirationDate || undefined),
@@ -212,13 +303,14 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
     onClose();
   };
 
-  const isPdf = fileType.includes('pdf') || fileData.startsWith('data:application/pdf');
-  const isImage = fileType.startsWith('image/') || fileData.startsWith('data:image/');
+  const currentDisplayData = pages.length > 0 ? pages[activePageIndex] : fileData;
+  const isCurrentPdf = currentDisplayData ? (currentDisplayData.startsWith('data:application/pdf') || (!currentDisplayData.startsWith('data:image/') && fileType.includes('pdf'))) : false;
+  const isCurrentImage = currentDisplayData ? (currentDisplayData.startsWith('data:image/') || fileType.startsWith('image/')) : false;
 
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       <div className={`bg-white rounded-2xl w-full shadow-2xl overflow-hidden border border-slate-200 my-4 flex flex-col transition-all duration-300 ${
-        isFullscreenPreview ? 'max-w-7xl h-[94vh]' : 'max-w-5xl max-h-[92vh]'
+        isFullscreenPreview ? 'max-w-7xl h-[94vh]' : 'max-w-6xl max-h-[94vh]'
       }`}>
         
         {/* Modal Header */}
@@ -229,7 +321,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
             </div>
             <div>
               <h3 className="font-extrabold text-base text-white">
-                {editingDoc ? 'Edit Document & Inspect File' : 'Insert / Upload Document with Live Preview'}
+                {editingDoc ? 'Edit Document & Multi-Page Manager' : 'Insert / Upload Document with Multi-Page Live Preview'}
               </h3>
               <p className="text-xs text-slate-400">
                 Client: <span className="text-sky-300 font-semibold">{clientName}</span>
@@ -252,7 +344,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
           </div>
         </div>
 
-        {/* Modal Body: 2-Column Split (Form on Left, Live PDF/File Preview on Right) */}
+        {/* Modal Body: 2-Column Split (Form on Left, Multi-Page Preview on Right) */}
         <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-0">
           
           {/* LEFT COLUMN: Metadata Form */}
@@ -265,13 +357,118 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
               </div>
             )}
 
-            {/* File Dropzone / Uploader */}
+            {/* Document Copy Type: PHOTOCOPY OR ORIGINAL (BAGONG FEATURE) */}
             <div>
               <label className="block font-bold text-slate-800 mb-1.5 flex items-center justify-between">
-                <span>Select or Drop PDF File <span className="text-rose-500">*</span></span>
-                {fileData && (
-                  <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
-                    <FileCheck2 className="w-3.5 h-3.5" /> File Loaded
+                <span className="flex items-center gap-1.5">
+                  <Stamp className="w-4 h-4 text-sky-600" />
+                  Document Copy Classification <span className="text-rose-500">*</span>
+                </span>
+                <span className="text-[10px] text-slate-500 font-semibold">Photocopy vs Original</span>
+              </label>
+
+              <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCopyType('Original')}
+                  className={`p-2.5 rounded-xl border text-left transition flex items-start gap-2 ${
+                    copyType === 'Original'
+                      ? 'bg-emerald-50/80 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                    copyType === 'Original' ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'
+                  }`}>
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-extrabold text-xs flex items-center gap-1">
+                      <span>Original</span>
+                      {copyType === 'Original' && <Check className="w-3 h-3 text-emerald-600 shrink-0" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Wet-ink signed / Official</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCopyType('Certified True Copy')}
+                  className={`p-2.5 rounded-xl border text-left transition flex items-start gap-2 ${
+                    copyType === 'Certified True Copy'
+                      ? 'bg-purple-50/80 border-purple-500 text-purple-950 ring-2 ring-purple-500/20'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                    copyType === 'Certified True Copy' ? 'bg-purple-600 text-white' : 'bg-slate-200 text-slate-500'
+                  }`}>
+                    <FileBadge className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-extrabold text-xs flex items-center gap-1">
+                      <span>Certified True Copy</span>
+                      {copyType === 'Certified True Copy' && <Check className="w-3 h-3 text-purple-600 shrink-0" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 leading-tight mt-0.5">SEC/BIR/LGU stamped</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCopyType('Photocopy')}
+                  className={`p-2.5 rounded-xl border text-left transition flex items-start gap-2 ${
+                    copyType === 'Photocopy'
+                      ? 'bg-amber-50/80 border-amber-500 text-amber-950 ring-2 ring-amber-500/20'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                    copyType === 'Photocopy' ? 'bg-amber-600 text-white' : 'bg-slate-200 text-slate-500'
+                  }`}>
+                    <Copy className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-extrabold text-xs flex items-center gap-1">
+                      <span>Photocopy</span>
+                      {copyType === 'Photocopy' && <Check className="w-3 h-3 text-amber-600 shrink-0" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Regular scan / Copy</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCopyType('Duplicate Copy')}
+                  className={`p-2.5 rounded-xl border text-left transition flex items-start gap-2 ${
+                    copyType === 'Duplicate Copy'
+                      ? 'bg-sky-50/80 border-sky-500 text-sky-950 ring-2 ring-sky-500/20'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                    copyType === 'Duplicate Copy' ? 'bg-sky-600 text-white' : 'bg-slate-200 text-slate-500'
+                  }`}>
+                    <FileText className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-extrabold text-xs flex items-center gap-1">
+                      <span>Duplicate Copy</span>
+                      {copyType === 'Duplicate Copy' && <Check className="w-3 h-3 text-sky-600 shrink-0" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Office / Client duplicate</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* File Dropzone / Uploader with Multi-Page support */}
+            <div>
+              <label className="block font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+                <span>Select PDF or Multi-Page Scans <span className="text-rose-500">*</span></span>
+                {pages.length > 0 && (
+                  <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
+                    <FileCheck2 className="w-3.5 h-3.5" /> {pages.length} {pages.length === 1 ? 'Page' : 'Pages'} Loaded
                   </span>
                 )}
               </label>
@@ -281,37 +478,38 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
-                className={`relative border-2 border-dashed rounded-xl p-4 text-center transition ${
+                className={`relative border-2 border-dashed rounded-xl p-3.5 text-center transition ${
                   dragActive
                     ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-500/20'
-                    : fileData
+                    : pages.length > 0
                     ? 'border-sky-400 bg-sky-50/30'
                     : 'border-slate-300 hover:border-sky-400 bg-slate-50'
                 }`}
               >
                 <input
                   type="file"
+                  multiple
                   accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx"
                   onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      handleFileChange(e.target.files[0]);
+                    if (e.target.files && e.target.files.length > 0) {
+                      handleFileChange(e.target.files);
                     }
                   }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
 
-                {fileData ? (
+                {pages.length > 0 ? (
                   <div className="flex items-center justify-between gap-2 text-left">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-9 h-9 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
-                        <FileText className="w-5 h-5" />
+                      <div className="w-9 h-9 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0 font-extrabold text-xs">
+                        <Layers className="w-5 h-5" />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-bold text-slate-900 text-xs truncate max-w-[200px]" title={originalFileName}>
+                        <p className="font-bold text-slate-900 text-xs truncate max-w-[180px]" title={originalFileName}>
                           {originalFileName || 'Document Attached'}
                         </p>
                         <p className="text-[11px] text-slate-500">
-                          {(fileSize / 1024).toFixed(1)} KB &bull; <span className="text-sky-700 font-semibold underline">Click to change</span>
+                          {pages.length} {pages.length === 1 ? 'Page' : 'Pages'} &bull; {(fileSize / 1024).toFixed(1)} KB &bull; <span className="text-sky-700 font-semibold underline">Click to replace</span>
                         </p>
                       </div>
                     </div>
@@ -323,7 +521,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                         handleGenerateSamplePdf();
                       }}
                       className="text-[10px] text-slate-500 hover:text-sky-700 bg-white border border-slate-200 px-2 py-1 rounded-md"
-                      title="Regenerate Test PDF"
+                      title="Regenerate Test Multi-Page PDF"
                     >
                       Sample PDF
                     </button>
@@ -332,16 +530,68 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                   <div>
                     <Upload className="w-6 h-6 text-sky-600 mx-auto mb-1" />
                     <p className="font-bold text-slate-800 text-xs">
-                      Drag & drop PDF here or <span className="text-sky-600 underline">Browse</span>
+                      Drag & drop PDF / Page scans here or <span className="text-sky-600 underline">Browse</span>
                     </p>
                     <p className="text-[10px] text-slate-400 mt-0.5">
-                      Supports PDF, PNG, JPG, Word & Excel files
+                      Supports multiple page uploads (PDF, PNG, JPG scans)
                     </p>
                   </div>
                 )}
               </div>
 
-              {!fileData && (
+              {/* Multi-Page thumbnail strip in form if multiple pages */}
+              {pages.length > 1 && (
+                <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-slate-700 flex items-center gap-1">
+                      <Layers className="w-3.5 h-3.5 text-sky-600" />
+                      Document Pages ({pages.length})
+                    </span>
+                    <label className="text-[10px] font-bold text-sky-700 hover:text-sky-800 cursor-pointer flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-slate-200">
+                      <Plus className="w-3 h-3" /> Add Next Page
+                      <input
+                        type="file"
+                        accept="application/pdf,image/*"
+                        onChange={handleAddAdditionalPage}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                    {pages.map((p, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setActivePageIndex(idx)}
+                        className={`relative group shrink-0 cursor-pointer rounded-lg overflow-hidden border-2 transition ${
+                          activePageIndex === idx
+                            ? 'border-sky-500 ring-2 ring-sky-500/30'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="w-12 h-14 bg-white flex flex-col items-center justify-center p-1 text-[9px] font-bold text-slate-600">
+                          <span>Pg {idx + 1}</span>
+                          <FileText className="w-3.5 h-3.5 text-slate-400 mt-0.5" />
+                        </div>
+                        {pages.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemovePage(idx);
+                            }}
+                            className="absolute -top-1 -right-1 bg-rose-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition shadow"
+                            title="Remove this page"
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {pages.length === 0 && (
                 <div className="mt-2 flex items-center justify-between">
                   <span className="text-[11px] text-slate-400">Need a sample compliance file?</span>
                   <button
@@ -350,7 +600,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                     className="text-[11px] font-bold text-sky-700 hover:text-sky-800 bg-sky-50 hover:bg-sky-100 px-2.5 py-1 rounded-md border border-sky-200 inline-flex items-center gap-1 transition"
                   >
                     <Sparkles className="w-3 h-3 text-sky-600" />
-                    <span>Generate Test PDF</span>
+                    <span>Generate 3-Page Test PDF</span>
                   </button>
                 </div>
               )}
@@ -564,8 +814,8 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
 
           </div>
 
-          {/* RIGHT COLUMN: LIVE FILE PREVIEW VIEWER (DPAT NA VIVIEW UNG FILE NA ILALAGAY) */}
-          <div className="lg:col-span-7 bg-slate-950 flex flex-col overflow-hidden text-slate-100 min-h-[420px]">
+          {/* RIGHT COLUMN: MULTI-PAGE LIVE PREVIEW VIEWER */}
+          <div className="lg:col-span-7 bg-slate-950 flex flex-col overflow-hidden text-slate-100 min-h-[440px]">
             
             {/* Live Preview Toolbar Header */}
             <div className="bg-slate-900 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
@@ -575,16 +825,48 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                   <Eye className="w-3.5 h-3.5 text-sky-400" />
                   Live Document Preview
                 </span>
-                {fileData && (
-                  <span className="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md border border-slate-700">
-                    {isPdf ? 'PDF Format' : isImage ? 'Image Scan' : 'Attachment'}
+                {copyType && (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                    copyType === 'Original' ? 'bg-emerald-950 text-emerald-300 border-emerald-800' :
+                    copyType === 'Certified True Copy' ? 'bg-purple-950 text-purple-300 border-purple-800' :
+                    copyType === 'Photocopy' ? 'bg-amber-950 text-amber-300 border-amber-800' :
+                    'bg-sky-950 text-sky-300 border-sky-800'
+                  }`}>
+                    {copyType}
                   </span>
                 )}
               </div>
 
               {/* Viewer Tools */}
-              {fileData && (
+              {currentDisplayData && (
                 <div className="flex items-center gap-1.5">
+                  {/* Multi-page navigation if > 1 page */}
+                  {pages.length > 1 && (
+                    <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700 text-xs mr-1">
+                      <button
+                        type="button"
+                        onClick={() => setActivePageIndex((prev) => Math.max(0, prev - 1))}
+                        disabled={activePageIndex === 0}
+                        className="p-1 hover:text-sky-400 disabled:opacity-40 text-slate-300 transition"
+                        title="Previous Page"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="px-1.5 font-mono text-[10px] text-sky-300 font-bold">
+                        Pg {activePageIndex + 1}/{pages.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setActivePageIndex((prev) => Math.min(pages.length - 1, prev + 1))}
+                        disabled={activePageIndex === pages.length - 1}
+                        className="p-1 hover:text-sky-400 disabled:opacity-40 text-slate-300 transition"
+                        title="Next Page"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
                   <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700 text-xs">
                     <button
                       type="button"
@@ -627,13 +909,13 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
 
             {/* Preview Viewport */}
             <div className="flex-1 bg-slate-950 p-3 sm:p-4 flex items-center justify-center overflow-auto relative">
-              {fileData ? (
-                isPdf ? (
-                  <div className="w-full h-full rounded-xl overflow-hidden shadow-2xl border border-slate-800 bg-white flex flex-col">
-                    <iframe
-                      src={`${fileData}#toolbar=1&navpanes=0&scrollbar=1&zoom=${previewZoom}`}
-                      title={fileName || 'File Preview'}
-                      className="w-full flex-1 border-0"
+              {currentDisplayData ? (
+                isCurrentImage ? (
+                  <div className="flex items-center justify-center w-full h-full overflow-auto">
+                    <img
+                      src={currentDisplayData}
+                      alt={fileName || `Page ${activePageIndex + 1}`}
+                      className="max-h-full max-w-full object-contain rounded-xl shadow-2xl border border-slate-800 bg-white"
                       style={{
                         transform: `scale(${previewZoom / 100}) rotate(${previewRotation}deg)`,
                         transformOrigin: 'center center',
@@ -641,12 +923,12 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                       }}
                     />
                   </div>
-                ) : isImage ? (
-                  <div className="flex items-center justify-center w-full h-full overflow-auto">
-                    <img
-                      src={fileData}
-                      alt={fileName || 'Preview'}
-                      className="max-h-full max-w-full object-contain rounded-xl shadow-2xl border border-slate-800 bg-white"
+                ) : isCurrentPdf ? (
+                  <div className="w-full h-full rounded-xl overflow-hidden shadow-2xl border border-slate-800 bg-white flex flex-col">
+                    <iframe
+                      src={`${currentDisplayData}#toolbar=1&navpanes=0&scrollbar=1&zoom=${previewZoom}`}
+                      title={fileName || 'File Preview'}
+                      className="w-full flex-1 border-0"
                       style={{
                         transform: `scale(${previewZoom / 100}) rotate(${previewRotation}deg)`,
                         transformOrigin: 'center center',
@@ -673,7 +955,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                     No File Selected Yet
                   </h4>
                   <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                    Select or drop a PDF document on the left, and its complete live interactive preview with text, stamps, and layout will display right here.
+                    Select or drop a PDF document or scan on the left, and its complete live multi-page interactive preview with text, stamps, and layout will display right here.
                   </p>
                   <div className="mt-4">
                     <button
@@ -682,23 +964,30 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                       className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-md shadow-sky-500/20 transition"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>Preview Sample Test PDF</span>
+                      <span>Preview 3-Page Test PDF</span>
                     </button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Bottom Preview Footer Bar */}
-            {fileData && (
+            {/* Bottom Preview Footer Bar with multi-page tabs */}
+            {currentDisplayData && (
               <div className="bg-slate-900 px-4 py-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
                 <div className="flex items-center gap-2 truncate">
                   <span className="text-slate-500">File:</span>
                   <span className="font-semibold text-slate-200 truncate">{originalFileName || fileName}</span>
+                  {pages.length > 1 && (
+                    <span className="text-sky-400 font-bold bg-sky-950 px-2 py-0.5 rounded border border-sky-900">
+                      Viewing Page {activePageIndex + 1} of {pages.length}
+                    </span>
+                  )}
                 </div>
-                <span className="font-mono text-[10px] text-sky-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-                  {(fileSize / 1024).toFixed(1)} KB
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[10px] text-sky-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                    {(fileSize / 1024).toFixed(1)} KB
+                  </span>
+                </div>
               </div>
             )}
 

@@ -7,7 +7,6 @@ import {
   FileText, 
   Calendar, 
   Hash, 
-  Tag, 
   Folder, 
   Clock, 
   AlertTriangle,
@@ -21,7 +20,16 @@ import {
   Archive,
   Trash2,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Layers,
+  ChevronLeft,
+  ChevronRight,
+  Stamp,
+  Copy,
+  FileBadge,
+  LayoutGrid,
+  ScrollText,
+  FileCheck2
 } from 'lucide-react';
 import { DocumentItem, FolderDefinition } from '../types';
 import { calculateDaysRemaining, formatDateDisplay, formatRemainingDaysText, getUrgencySeverity } from '../utils/dateUtils';
@@ -48,6 +56,8 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
 }) => {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [rotation, setRotation] = useState(0);
+  const [activePageIndex, setActivePageIndex] = useState(0);
+  const [viewMode, setViewMode] = useState<'single' | 'continuous'>('single');
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   if (!isOpen || !doc) return null;
@@ -57,6 +67,16 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
   const transmittal = doc.transmittal;
   const transStatus = transmittal?.status || 'in_custody';
   const transConfig = TRANSMITTAL_STATUS_CONFIG[transStatus];
+
+  // Resolve pages array
+  const pagesList: string[] = (doc.pages && doc.pages.length > 0)
+    ? doc.pages
+    : (doc.fileData ? [doc.fileData] : []);
+  
+  const totalPages = pagesList.length || doc.pageCount || 1;
+  const currentPageData = pagesList[activePageIndex] || doc.fileData;
+
+  const copyType = doc.copyType || 'Original';
 
   const handleConfirmDelete = () => {
     if (onDeleteDocument && doc) {
@@ -79,7 +99,33 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
     try {
       const printWindow = window.open('', '_blank');
       if (printWindow) {
-        if (doc.fileType.includes('pdf')) {
+        if (pagesList.length > 1) {
+          // Multi-page print layout
+          const pagesHtml = pagesList.map((pageSrc, idx) => `
+            <div style="page-break-after: always; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:20px; box-sizing:border-box;">
+              ${pageSrc.startsWith('data:application/pdf')
+                ? `<iframe src="${pageSrc}" style="width:100%; height:90vh; border:none;"></iframe>`
+                : `<img src="${pageSrc}" style="max-width:100%; max-height:92vh; object-fit:contain;" />`
+              }
+              <p style="font-family:sans-serif; font-size:12px; color:#666; margin-top:10px;">Page ${idx + 1} of ${pagesList.length} - ${doc.fileName}</p>
+            </div>
+          `).join('');
+
+          printWindow.document.write(`
+            <html>
+              <head>
+                <title>${doc.fileName} (${pagesList.length} Pages)</title>
+                <style>
+                  @page { size: auto; margin: 10mm; }
+                  body { margin: 0; padding: 0; background: white; }
+                </style>
+              </head>
+              <body>
+                ${pagesHtml}
+              </body>
+            </html>
+          `);
+        } else if (doc.fileType.includes('pdf') || doc.fileData.startsWith('data:application/pdf')) {
           printWindow.document.write(`
             <html>
               <head><title>${doc.fileName}</title></head>
@@ -92,7 +138,7 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
           printWindow.document.write(`
             <html>
               <head><title>${doc.fileName}</title></head>
-              <body style="margin:0;display:flex;align-items:center;justify-content:center;">
+              <body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;">
                 <img src="${doc.fileData}" style="max-width:100%;height:auto;" />
               </body>
             </html>
@@ -103,11 +149,10 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
           try {
             printWindow.print();
           } catch {
-            // print popup blocked
+            // print blocked
           }
         }, 500);
       } else {
-        // Fallback: download file
         handleDownload();
       }
     } catch {
@@ -115,15 +160,15 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
     }
   };
 
-  const isImage = doc.fileType.startsWith('image/');
-  const isPdf = doc.fileType.includes('pdf') || doc.fileData.startsWith('data:application/pdf');
+  const isCurrentPagePdf = currentPageData ? (currentPageData.startsWith('data:application/pdf') || (!currentPageData.startsWith('data:image/') && doc.fileType.includes('pdf'))) : false;
+  const isCurrentPageImage = currentPageData ? (currentPageData.startsWith('data:image/') || doc.fileType.startsWith('image/')) : false;
 
   return (
     <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
-      <div className="bg-slate-900 rounded-2xl max-w-6xl w-full h-[92vh] shadow-2xl flex flex-col overflow-hidden border border-slate-800 text-slate-100">
+      <div className="bg-slate-900 rounded-2xl max-w-7xl w-full h-[94vh] shadow-2xl flex flex-col overflow-hidden border border-slate-800 text-slate-100">
         
         {/* Top Control Bar with App Branding & Back Navigation */}
-        <div className="bg-slate-950 px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-4 flex-wrap">
+        <div className="bg-slate-950 px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-4 flex-wrap shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={onClose}
@@ -137,15 +182,36 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
               <FileText className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-400 bg-sky-950/80 px-2 py-0.5 rounded border border-sky-800/50">
                   IEN REALTY INC.
                 </span>
-                <span className="text-[11px] text-slate-400">
+                
+                {/* Copy Type Classification Badge */}
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${
+                  copyType === 'Original' ? 'bg-emerald-950 text-emerald-300 border-emerald-800' :
+                  copyType === 'Certified True Copy' ? 'bg-purple-950 text-purple-300 border-purple-800' :
+                  copyType === 'Photocopy' ? 'bg-amber-950 text-amber-300 border-amber-800' :
+                  'bg-sky-950 text-sky-300 border-sky-800'
+                }`}>
+                  {copyType === 'Original' && <ShieldCheck className="w-3 h-3 text-emerald-400" />}
+                  {copyType === 'Certified True Copy' && <FileBadge className="w-3 h-3 text-purple-400" />}
+                  {copyType === 'Photocopy' && <Copy className="w-3 h-3 text-amber-400" />}
+                  {copyType === 'Duplicate Copy' && <FileText className="w-3 h-3 text-sky-400" />}
+                  <span>{copyType}</span>
+                </span>
+
+                {/* Page Count Badge */}
+                <span className="text-[10px] font-bold bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700 flex items-center gap-1">
+                  <Layers className="w-3 h-3 text-sky-400" />
+                  <span>{totalPages} {totalPages === 1 ? 'Page' : 'Pages'}</span>
+                </span>
+
+                <span className="text-[11px] text-slate-400 hidden md:inline">
                   Folder {doc.folderCode || folder?.code}: {folder?.name || 'Compliance File'} &bull; {(doc.fileSize / 1024).toFixed(1)} KB
                 </span>
               </div>
-              <h3 className="font-bold text-sm sm:text-base text-white truncate max-w-md sm:max-w-xl" title={doc.fileName}>
+              <h3 className="font-bold text-sm sm:text-base text-white truncate max-w-md sm:max-w-xl mt-0.5" title={doc.fileName}>
                 {doc.fileName}
               </h3>
             </div>
@@ -166,7 +232,50 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
               </button>
             )}
 
-            {/* Zoom Controls (for images / scalable preview) */}
+            {/* Multi-Page Pagination Controls if > 1 page */}
+            {totalPages > 1 && (
+              <div className="flex items-center bg-slate-800 rounded-xl p-0.5 border border-slate-700 text-xs">
+                <button
+                  onClick={() => setActivePageIndex((prev) => Math.max(0, prev - 1))}
+                  disabled={activePageIndex === 0}
+                  className="p-1.5 hover:text-sky-400 disabled:opacity-30 text-slate-300 transition"
+                  title="Previous Page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="px-2 font-mono text-[11px] text-sky-300 font-bold">
+                  Page {activePageIndex + 1} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setActivePageIndex((prev) => Math.min(totalPages - 1, prev + 1))}
+                  disabled={activePageIndex === totalPages - 1}
+                  className="p-1.5 hover:text-sky-400 disabled:opacity-30 text-slate-300 transition"
+                  title="Next Page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+
+                {/* View Mode Toggle: Single Page vs Continuous Vertical */}
+                <div className="border-l border-slate-700 pl-1 ml-1 flex items-center gap-0.5">
+                  <button
+                    onClick={() => setViewMode('single')}
+                    className={`p-1 rounded transition ${viewMode === 'single' ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'}`}
+                    title="Single Page Carousel View"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('continuous')}
+                    className={`p-1 rounded transition ${viewMode === 'continuous' ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'}`}
+                    title="Continuous Multi-Page Vertical Scroll"
+                  >
+                    <ScrollText className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Zoom Controls */}
             <div className="hidden sm:flex items-center bg-slate-800 rounded-xl p-0.5 border border-slate-700 text-xs">
               <button
                 onClick={() => setZoomLevel((prev) => Math.max(50, prev - 25))}
@@ -221,7 +330,7 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
             <button
               onClick={handlePrint}
               className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl transition border border-slate-700"
-              title="Print Document"
+              title="Print Document (All Pages)"
             >
               <Printer className="w-4 h-4" />
             </button>
@@ -248,56 +357,177 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
         </div>
 
         {/* Content Body: Preview & Metadata Sidebar */}
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
           
-          {/* Main Viewer Area */}
-          <div className="flex-1 bg-slate-950 flex items-center justify-center p-4 overflow-auto relative">
-            {isPdf ? (
-              <iframe
-                src={`${doc.fileData}#toolbar=1&navpanes=0&scrollbar=1&zoom=${zoomLevel}`}
-                title={doc.fileName}
-                className="w-full h-full rounded-xl bg-white border border-slate-800 shadow-2xl"
-                style={{
-                  transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
-                  transformOrigin: 'center center',
-                  transition: 'transform 0.2s ease',
-                }}
-              />
-            ) : isImage ? (
-              <div className="flex items-center justify-center w-full h-full overflow-auto">
-                <img
-                  src={doc.fileData}
-                  alt={doc.fileName}
-                  className="max-h-full max-w-full object-contain rounded-xl shadow-2xl border border-slate-800"
-                  style={{
-                    transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
-                    transformOrigin: 'center center',
-                    transition: 'transform 0.2s ease',
-                  }}
-                />
-              </div>
-            ) : (
-              <div className="text-center p-8 bg-slate-900 rounded-2xl border border-slate-800 max-w-md">
-                <FileText className="w-16 h-16 text-sky-500 mx-auto mb-3" />
-                <p className="font-bold text-slate-200 mb-1">{doc.fileName}</p>
-                <p className="text-xs text-slate-400 mb-4">
-                  Document format: {doc.fileType}. Click below to download and view on your machine.
-                </p>
-                <button
-                  onClick={handleDownload}
-                  className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-xl text-xs"
-                >
-                  Download File
-                </button>
+          {/* Main Viewer Area (Supports Continuous Vertical Scroll & Single Page Carousel) */}
+          <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden relative">
+            
+            {/* Viewport content */}
+            <div className="flex-1 p-4 overflow-auto flex items-center justify-center">
+              {viewMode === 'continuous' && pagesList.length > 1 ? (
+                /* Continuous Multi-Page Vertical Scroll */
+                <div className="w-full max-w-4xl space-y-6 py-4 flex flex-col items-center">
+                  {pagesList.map((pageData, pIdx) => (
+                    <div
+                      key={pIdx}
+                      className="w-full bg-white rounded-2xl p-4 shadow-2xl border border-slate-800 text-slate-900 flex flex-col items-center"
+                    >
+                      <div className="w-full flex items-center justify-between pb-2 mb-2 border-b border-slate-200 text-xs font-bold text-slate-500">
+                        <span className="flex items-center gap-1.5 text-sky-700">
+                          <Layers className="w-3.5 h-3.5" /> Page {pIdx + 1} of {pagesList.length}
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-400">{doc.fileName}</span>
+                      </div>
+                      
+                      {pageData.startsWith('data:application/pdf') ? (
+                        <iframe
+                          src={`${pageData}#toolbar=1&navpanes=0&scrollbar=1&zoom=${zoomLevel}`}
+                          title={`Page ${pIdx + 1}`}
+                          className="w-full h-[700px] border-0 rounded-xl"
+                          style={{
+                            transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
+                            transformOrigin: 'center center',
+                          }}
+                        />
+                      ) : (
+                        <img
+                          src={pageData}
+                          alt={`Page ${pIdx + 1}`}
+                          className="max-w-full max-h-[85vh] object-contain rounded-xl"
+                          style={{
+                            transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
+                            transformOrigin: 'center center',
+                          }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* Single Page Carousel Mode */
+                <div className="w-full h-full flex items-center justify-center overflow-auto">
+                  {isCurrentPageImage ? (
+                    <div className="flex items-center justify-center w-full h-full overflow-auto">
+                      <img
+                        src={currentPageData}
+                        alt={`${doc.fileName} - Page ${activePageIndex + 1}`}
+                        className="max-h-full max-w-full object-contain rounded-xl shadow-2xl border border-slate-800 bg-white"
+                        style={{
+                          transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
+                          transformOrigin: 'center center',
+                          transition: 'transform 0.15s ease',
+                        }}
+                      />
+                    </div>
+                  ) : isCurrentPagePdf ? (
+                    <iframe
+                      src={`${currentPageData}#toolbar=1&navpanes=0&scrollbar=1&zoom=${zoomLevel}`}
+                      title={`${doc.fileName} - Page ${activePageIndex + 1}`}
+                      className="w-full h-full rounded-xl bg-white border border-slate-800 shadow-2xl"
+                      style={{
+                        transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
+                        transformOrigin: 'center center',
+                        transition: 'transform 0.15s ease',
+                      }}
+                    />
+                  ) : (
+                    <div className="text-center p-8 bg-slate-900 rounded-2xl border border-slate-800 max-w-md">
+                      <FileText className="w-16 h-16 text-sky-500 mx-auto mb-3" />
+                      <p className="font-bold text-slate-200 mb-1">{doc.fileName}</p>
+                      <p className="text-xs text-slate-400 mb-4">
+                        Document format: {doc.fileType}. Click below to download and view on your machine.
+                      </p>
+                      <button
+                        onClick={handleDownload}
+                        className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-xl text-xs"
+                      >
+                        Download File
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Multi-Page Thumbnail Strip */}
+            {pagesList.length > 1 && (
+              <div className="bg-slate-900 px-4 py-2.5 border-t border-slate-800 flex items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-2 overflow-x-auto py-1">
+                  <span className="text-[11px] font-bold text-slate-400 whitespace-nowrap flex items-center gap-1 mr-1">
+                    <Layers className="w-3.5 h-3.5 text-sky-400" />
+                    Pages ({pagesList.length}):
+                  </span>
+                  {pagesList.map((p, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setActivePageIndex(idx);
+                        if (viewMode === 'continuous') setViewMode('single');
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+                        activePageIndex === idx
+                          ? 'bg-sky-600 text-white shadow-md ring-2 ring-sky-400/40'
+                          : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
+                      }`}
+                    >
+                      <span>Page {idx + 1}</span>
+                      {activePageIndex === idx && <CheckCircle2 className="w-3 h-3 text-white" />}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    Viewing Page {activePageIndex + 1} of {pagesList.length}
+                  </span>
+                </div>
               </div>
             )}
+
           </div>
 
           {/* Document Details Sidebar */}
-          <div className="w-full lg:w-80 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 p-4 sm:p-5 overflow-y-auto space-y-4 text-xs">
-            <h4 className="font-bold text-sky-400 uppercase tracking-wider text-[11px]">
-              Document Metadata & Custody
+          <div className="w-full lg:w-80 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 p-4 sm:p-5 overflow-y-auto space-y-4 text-xs shrink-0">
+            <h4 className="font-bold text-sky-400 uppercase tracking-wider text-[11px] flex items-center justify-between">
+              <span>Document Metadata & Custody</span>
+              <span className="text-[10px] text-slate-400 font-mono">{totalPages} Pg</span>
             </h4>
+
+            {/* Document Copy Classification (BAGONG FEATURE: Original vs Photocopy) */}
+            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Stamp className="w-3.5 h-3.5 text-sky-400" />
+                Document Copy Classification
+              </span>
+
+              <div className={`p-2.5 rounded-xl border flex items-center gap-2.5 ${
+                copyType === 'Original' ? 'bg-emerald-950/60 border-emerald-800/80 text-emerald-200' :
+                copyType === 'Certified True Copy' ? 'bg-purple-950/60 border-purple-800/80 text-purple-200' :
+                copyType === 'Photocopy' ? 'bg-amber-950/60 border-amber-800/80 text-amber-200' :
+                'bg-sky-950/60 border-sky-800/80 text-sky-200'
+              }`}>
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                  copyType === 'Original' ? 'bg-emerald-600 text-white' :
+                  copyType === 'Certified True Copy' ? 'bg-purple-600 text-white' :
+                  copyType === 'Photocopy' ? 'bg-amber-600 text-white' :
+                  'bg-sky-600 text-white'
+                }`}>
+                  {copyType === 'Original' ? <ShieldCheck className="w-4 h-4" /> :
+                   copyType === 'Certified True Copy' ? <FileBadge className="w-4 h-4" /> :
+                   copyType === 'Photocopy' ? <Copy className="w-4 h-4" /> :
+                   <FileText className="w-4 h-4" />}
+                </div>
+                <div>
+                  <span className="font-extrabold text-xs block">{copyType}</span>
+                  <p className="text-[10px] opacity-80">
+                    {copyType === 'Original' ? 'Original wet-ink / official record' :
+                     copyType === 'Certified True Copy' ? 'SEC / BIR / LGU certified copy' :
+                     copyType === 'Photocopy' ? 'Regular photocopy / office duplicate' :
+                     'Office duplicate archive'}
+                  </p>
+                </div>
+              </div>
+            </div>
 
             {/* Transmittal Status Card */}
             <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
@@ -439,8 +669,10 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
               </div>
 
               <div>
-                <span className="text-slate-400 text-[10px] uppercase font-bold block">File Type / Original</span>
-                <span className="text-slate-300 font-mono text-[11px] truncate block">{doc.originalFileName}</span>
+                <span className="text-slate-400 text-[10px] uppercase font-bold block">File Type / Pages</span>
+                <span className="text-slate-300 font-mono text-[11px] truncate block">
+                  {doc.originalFileName} ({totalPages} {totalPages === 1 ? 'Page' : 'Pages'})
+                </span>
               </div>
             </div>
 
@@ -492,7 +724,7 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
                 {doc.fileName}
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Folder {doc.folderCode || folder?.code || '00'} &bull; {(doc.fileSize / 1024).toFixed(1)} KB
+                Folder {doc.folderCode || folder?.code || '00'} &bull; {(doc.fileSize / 1024).toFixed(1)} KB &bull; {copyType}
               </p>
             </div>
 
@@ -525,3 +757,4 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
     </div>
   );
 };
+

@@ -167,24 +167,23 @@ class StorageService {
     }
   }
 
-  // Ensure all initial clients and documents are uploaded to Firestore
+  // Ensure all initial clients and documents are uploaded to Firestore only if cloud is brand new/empty
   private async ensureInitialCloudSync(): Promise<void> {
     try {
       this.updateSyncState({ status: 'syncing' });
       const snap = await getDocs(collection(db, 'clients'));
-      const cloudClientIds = new Set(snap.docs.map((d) => d.id));
-
-      for (const client of INITIAL_CLIENTS) {
-        if (!cloudClientIds.has(client.id)) {
+      
+      // Only seed initial clients if Firestore is completely empty
+      if (snap.empty) {
+        for (const client of INITIAL_CLIENTS) {
           await setDoc(doc(db, 'clients', client.id), cleanForFirestore(client));
         }
       }
 
       const docSnap = await getDocs(collection(db, 'documents'));
-      const cloudDocIds = new Set(docSnap.docs.map((d) => d.id));
-
-      for (const docItem of INITIAL_DOCUMENTS) {
-        if (!cloudDocIds.has(docItem.id)) {
+      // Only seed initial docs if Firestore documents collection is completely empty
+      if (docSnap.empty) {
+        for (const docItem of INITIAL_DOCUMENTS) {
           await setDoc(doc(db, 'documents', docItem.id), cleanForFirestore(docItem));
         }
       }
@@ -213,7 +212,7 @@ class StorageService {
         collection(db, 'clients'),
         async (snapshot) => {
           if (snapshot.empty) {
-            // Seed Firestore with initial clients (including A.B Soterio) if cloud is empty
+            // Seed Firestore with initial clients if cloud is newly initialized and empty
             await this.seedCloudIfEmpty();
             return;
           }
@@ -223,26 +222,13 @@ class StorageService {
             remoteClients.push(docSnap.data() as ClientProfile);
           });
 
-          // Check if A.B Soterio or any initial client is missing from remote
-          const missingInitial = INITIAL_CLIENTS.filter(
-            (initC) => !remoteClients.some((rc) => rc.id === initC.id || rc.cifNo === initC.cifNo)
-          );
-          if (missingInitial.length > 0) {
-            for (const missing of missingInitial) {
-              remoteClients.unshift(missing);
-              // Asynchronously push missing initial to Firestore
-              setDoc(doc(db, 'clients', missing.id), cleanForFirestore(missing)).catch((e) =>
-                console.warn('Auto-sync missing initial client to cloud:', e)
-              );
-            }
-          }
-
           // Update memory & local IndexedDB cache
           this.memoryClients = remoteClients;
           try {
             const idb = await this.openDB();
             const tx = idb.transaction(STORES.CLIENTS, 'readwrite');
             const store = tx.objectStore(STORES.CLIENTS);
+            store.clear(); // Clear stale local cache to match remote
             for (const c of remoteClients) {
               store.put(c);
             }
@@ -276,48 +262,31 @@ class StorageService {
       this.unsubscribeDocs = onSnapshot(
         collection(db, 'documents'),
         async (snapshot) => {
-          if (!snapshot.empty) {
-            const remoteDocs: DocumentItem[] = [];
-            snapshot.forEach((docSnap) => {
-              remoteDocs.push(docSnap.data() as DocumentItem);
-            });
+          const remoteDocs: DocumentItem[] = [];
+          snapshot.forEach((docSnap) => {
+            remoteDocs.push(docSnap.data() as DocumentItem);
+          });
 
-            // Check if any initial docs are missing from remote
-            const missingDocs = INITIAL_DOCUMENTS.filter(
-              (initD) => !remoteDocs.some((rd) => rd.id === initD.id)
-            );
-            if (missingDocs.length > 0) {
-              for (const missing of missingDocs) {
-                remoteDocs.push(missing);
-                setDoc(doc(db, 'documents', missing.id), cleanForFirestore(missing)).catch((e) =>
-                  console.warn('Auto-sync missing initial doc to cloud:', e)
-                );
-              }
+          this.memoryDocs = remoteDocs;
+          try {
+            const idb = await this.openDB();
+            const tx = idb.transaction(STORES.DOCUMENTS, 'readwrite');
+            const store = tx.objectStore(STORES.DOCUMENTS);
+            store.clear(); // Clear stale local cache to properly reflect deleted documents
+            for (const d of remoteDocs) {
+              store.put(d);
             }
-
-            this.memoryDocs = remoteDocs;
-            try {
-              const idb = await this.openDB();
-              const tx = idb.transaction(STORES.DOCUMENTS, 'readwrite');
-              const store = tx.objectStore(STORES.DOCUMENTS);
-              for (const d of remoteDocs) {
-                store.put(d);
-              }
-            } catch (e) {
-              console.warn('IndexedDB doc mirror note:', e);
-            }
-
-            this.updateSyncState({
-              status: 'synced',
-              lastSyncedAt: new Date().toISOString(),
-              documentsCount: remoteDocs.length,
-            });
-
-            this.notifyDataChange({ type: 'documents' });
-          } else {
-            // Seed cloud documents if empty
-            await this.seedCloudDocsIfEmpty();
+          } catch (e) {
+            console.warn('IndexedDB doc mirror note:', e);
           }
+
+          this.updateSyncState({
+            status: 'synced',
+            lastSyncedAt: new Date().toISOString(),
+            documentsCount: remoteDocs.length,
+          });
+
+          this.notifyDataChange({ type: 'documents' });
         },
         (error) => {
           console.warn('Documents real-time sync note:', error.message);

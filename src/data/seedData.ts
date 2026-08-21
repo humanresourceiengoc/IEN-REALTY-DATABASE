@@ -1,7 +1,7 @@
 import { ClientProfile, DocumentItem, FolderDefinition } from '../types';
 
-// Helper to generate a minimal valid PDF data URI that displays text cleanly
-export function generateSamplePdfDataUri(title: string, subtitle: string): string {
+// Helper to generate a multi-page valid PDF data URI that displays text cleanly
+export function generateSamplePdfDataUri(title: string, subtitle: string, pageCount: number = 3): string {
   // Sanitize strings for PDF Helvetica / standard ASCII stream
   const sanitizeForPdf = (str: string) => {
     return str
@@ -19,14 +19,15 @@ export function generateSamplePdfDataUri(title: string, subtitle: string): strin
   const cleanTitle = sanitizeForPdf(title);
   const cleanSubtitle = sanitizeForPdf(subtitle);
 
-  // A minimal valid PDF structure base64 encoded
+  // Generate SVG-based multi-page data URI if preferred or standard PDF
+  // A clean standard 3-page PDF stream:
   const pdfContent = `%PDF-1.4
 1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
-2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R 6 0 R 8 0 R] /Count 3 >> endobj
 3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
-4 0 obj << /Length 300 >> stream
+4 0 obj << /Length 380 >> stream
 BT
-/F1 18 Tf
+/F1 16 Tf
 50 720 Td
 (${cleanTitle}) Tj
 /F1 11 Tf
@@ -35,22 +36,66 @@ BT
 0 -25 Td
 (Document managed under IEN REALTY INC. Corporate Compliance Portal.) Tj
 0 -20 Td
-(Verified and securely archived on local database.) Tj
+(STATUS: Official File Archived & Verified - PAGE 1 OF 3) Tj
+0 -30 Td
+(Section 1: General Information & Corporate Profile Identification) Tj
+0 -20 Td
+(Authorized Liaison: IEN Realty Asset Management Operations) Tj
 ET
 endstream
 endobj
 5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+6 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
+7 0 obj << /Length 380 >> stream
+BT
+/F1 14 Tf
+50 720 Td
+(${cleanTitle} - [PAGE 2: COMPLIANCE CLAUSES]) Tj
+/F1 11 Tf
+0 -30 Td
+(Section 2: Philippine Regulatory Filings & Statutory Approvals) Tj
+0 -25 Td
+(Verified against BIR, SEC, LGU, and SSS / PhilHealth Mandates.) Tj
+0 -20 Td
+(Certified that this attachment forms part of the master engagement file.) Tj
+0 -30 Td
+(Official Seal & Authentication Record: IEN-COMP-2026-VAL) Tj
+ET
+endstream
+endobj
+8 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 9 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
+9 0 obj << /Length 380 >> stream
+BT
+/F1 14 Tf
+50 720 Td
+(${cleanTitle} - [PAGE 3: SIGNATURES & TRANSMITTAL LOG]) Tj
+/F1 11 Tf
+0 -30 Td
+(Section 3: Custody, Notarization & Transmittal Schedule) Tj
+0 -25 Td
+(Signed and delivered in Metro Manila, Philippines.) Tj
+0 -20 Td
+(End of Document Records - Page 3 of 3) Tj
+0 -30 Td
+(IEN REALTY INC. - LEASING & PROPERTY COMPLIANCE DIVISION) Tj
+ET
+endstream
+endobj
 xref
-0 6
+0 10
 0000000000 65535 f 
 0000000010 00000 n 
 0000000060 00000 n 
-0000000117 00000 n 
-0000000224 00000 n 
-0000000475 00000 n 
-trailer << /Size 6 /Root 1 0 R >>
+0000000125 00000 n 
+0000000232 00000 n 
+0000000560 00000 n 
+0000000632 00000 n 
+0000000739 00000 n 
+0000001067 00000 n 
+0000001174 00000 n 
+trailer << /Size 10 /Root 1 0 R >>
 startxref
-548
+1502
 %%EOF`;
 
   try {
@@ -62,6 +107,46 @@ startxref
     );
     return `data:application/pdf;base64,${btoa(encoded)}`;
   }
+}
+
+// Generate high quality sample page SVG images for multi-page preview testing
+export function generateSamplePageImage(title: string, clientSubtitle: string, pageNum: number, totalPages: number = 3): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1100" width="800" height="1100">
+    <rect width="800" height="1100" fill="#ffffff"/>
+    <rect x="20" y="20" width="760" height="1060" fill="#fafafa" stroke="#e2e8f0" stroke-width="2" rx="8"/>
+    <rect x="40" y="40" width="720" height="80" fill="#0284c7" rx="6"/>
+    <text x="60" y="88" fill="#ffffff" font-family="Arial, sans-serif" font-size="20" font-weight="bold">IEN REALTY INC. &bull; COMPLIANCE ARCHIVE</text>
+    <text x="60" y="150" fill="#0f172a" font-family="Arial, sans-serif" font-size="22" font-weight="bold">${title}</text>
+    <text x="60" y="180" fill="#475569" font-family="Arial, sans-serif" font-size="14">${clientSubtitle}</text>
+    <line x1="60" y1="200" x2="740" y2="200" stroke="#cbd5e1" stroke-width="1.5"/>
+    
+    <rect x="60" y="220" width="680" height="40" fill="#f1f5f9" rx="4"/>
+    <text x="80" y="246" fill="#0369a1" font-family="Arial, sans-serif" font-size="14" font-weight="bold">DOCUMENT SECTION ${pageNum}: OFFICIAL PAGE RECORD</text>
+    
+    <text x="60" y="300" fill="#334155" font-family="Arial, sans-serif" font-size="15" font-weight="bold">1. Statutory Filing and Compliance Summary</text>
+    <text x="60" y="330" fill="#475569" font-family="Arial, sans-serif" font-size="13">This page constitutes official Philippine corporate compliance file documentation.</text>
+    <text x="60" y="355" fill="#475569" font-family="Arial, sans-serif" font-size="13">Record verified with Mandaluyong City Hall, BIR Revenue District Office, and SEC.</text>
+    
+    <rect x="60" y="400" width="680" height="180" fill="#ffffff" stroke="#e2e8f0" rx="6"/>
+    <text x="80" y="435" fill="#0f172a" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Particulars &amp; Verification Breakdown</text>
+    <text x="80" y="470" fill="#64748b" font-family="Arial, sans-serif" font-size="12">Document Status: ACTIVE COMPLIANT &bull; Verified by Legal and Assets Team</text>
+    <text x="80" y="500" fill="#64748b" font-family="Arial, sans-serif" font-size="12">Filing Registry Reference: PH-IEN-2026-COMP-${pageNum}</text>
+    <text x="80" y="530" fill="#64748b" font-family="Arial, sans-serif" font-size="12">Original Blue-Ink Stamp Validated on Custody Records</text>
+    
+    <rect x="60" y="620" width="320" height="150" fill="#f8fafc" stroke="#e2e8f0" rx="6"/>
+    <text x="80" y="655" fill="#0f172a" font-family="Arial, sans-serif" font-size="13" font-weight="bold">IEN Realty Compliance Officer</text>
+    <line x1="80" y1="720" x2="350" y2="720" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4"/>
+    <text x="80" y="745" fill="#64748b" font-family="Arial, sans-serif" font-size="11">Authorized Signature &amp; Stamp</text>
+    
+    <rect x="420" y="620" width="320" height="150" fill="#f8fafc" stroke="#e2e8f0" rx="6"/>
+    <text x="440" y="655" fill="#0f172a" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Client Authorized Signatory</text>
+    <line x1="440" y1="720" x2="710" y2="720" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4"/>
+    <text x="440" y="745" fill="#64748b" font-family="Arial, sans-serif" font-size="11">Received &amp; Acknowledged</text>
+    
+    <text x="400" y="1030" fill="#64748b" font-family="Arial, sans-serif" font-size="13" font-weight="bold" text-anchor="middle">Page ${pageNum} of ${totalPages}</text>
+    <text x="400" y="1055" fill="#94a3b8" font-family="Arial, sans-serif" font-size="11" text-anchor="middle">IEN REALTY INC. &bull; CONFIDENTIAL &amp; PROPRIETARY CORPORATE RECORD</text>
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
 export const INITIAL_CLIENTS: ClientProfile[] = [
@@ -254,6 +339,13 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 410000,
     fileData: generateSamplePdfDataUri('IEN REALTY INC. - CLIENT ENGAGEMENT CONTRACT', 'Client: A.B Soterio Construction Corporation | CIF: 2021-0027'),
+    pages: [
+      generateSamplePageImage('IEN REALTY INC. - CLIENT ENGAGEMENT CONTRACT', 'A.B Soterio Construction Corporation - Mandated Lease Terms', 1, 3),
+      generateSamplePageImage('SERVICE LEVEL AGREEMENT & BROKERAGE TERMS', 'Brokerage Commission & Escrow Provisions', 2, 3),
+      generateSamplePageImage('NOTARIZATION & MUTUAL EXECUTION SIGNATURES', 'Atty. Rafael Gomez - Notary Public Manila', 3, 3),
+    ],
+    pageCount: 3,
+    copyType: 'Original',
     uploadedAt: '2021-05-01T09:00:00.000Z',
     expirationDate: '2025-05-03',
     referenceNumber: 'AGR-SOTERIO-2021-027',
@@ -270,6 +362,12 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 320000,
     fileData: generateSamplePdfDataUri('BOARD RESOLUTION & SECRETARY CERTIFICATE', 'Designating Arvin Soterio as Authorized Representative'),
+    pages: [
+      generateSamplePageImage('BOARD RESOLUTION - SPECIAL MEETING', 'Designation of Authorized Representative - Arvin Soterio', 1, 2),
+      generateSamplePageImage('CORPORATE SECRETARY’S CERTIFICATE', 'Verified under oath by Corporate Secretary', 2, 2),
+    ],
+    pageCount: 2,
+    copyType: 'Certified True Copy',
     uploadedAt: '2021-05-02T10:30:00.000Z',
     expirationDate: '2025-05-03',
     referenceNumber: 'BR-2021-05-SOT',
@@ -286,6 +384,12 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 580000,
     fileData: generateSamplePdfDataUri('SECURITIES AND EXCHANGE COMMISSION (SEC)', 'Certificate of Incorporation: CS2021-09812 | A.B Soterio Construction Corp.'),
+    pages: [
+      generateSamplePageImage('SEC CERTIFICATE OF INCORPORATION', 'Company Reg. No. CS2021-09812 - Mandaluyong City', 1, 2),
+      generateSamplePageImage('SEC ENDORSEMENT & REGISTRATION SEAL', 'Securities & Exchange Commission Manila', 2, 2),
+    ],
+    pageCount: 2,
+    copyType: 'Certified True Copy',
     uploadedAt: '2021-05-03T11:15:00.000Z',
     expirationDate: '2071-05-01',
     referenceNumber: 'SEC-CS2021-09812',
@@ -302,6 +406,13 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 640000,
     fileData: generateSamplePdfDataUri('ARTICLES OF INCORPORATION & BY-LAWS', 'A.B Soterio Construction Corporation - Mandaluyong City'),
+    pages: [
+      generateSamplePageImage('ARTICLES OF INCORPORATION - TITLE & PURPOSE', 'Primary & Secondary Purpose Clauses - Construction', 1, 3),
+      generateSamplePageImage('CAPITAL STOCK & SUBSCRIBERS TABLE', 'Authorized Capitalization PHP 10,000,000.00', 2, 3),
+      generateSamplePageImage('CORPORATE BY-LAWS & DIRECTORS ATTESTATION', 'Board Governance & Annual Meetings', 3, 3),
+    ],
+    pageCount: 3,
+    copyType: 'Certified True Copy',
     uploadedAt: '2021-05-03T14:00:00.000Z',
     expirationDate: '2071-05-01',
     referenceNumber: 'SEC-AOI-2021',
@@ -318,6 +429,12 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 490000,
     fileData: generateSamplePdfDataUri('BIR FORM 2303 - TAXPAYER CERTIFICATE OF REGISTRATION', 'TIN: 602-486-232-00000 | RDO 041 - Mandaluyong'),
+    pages: [
+      generateSamplePageImage('BIR FORM 2303 - CERTIFICATE OF REGISTRATION', 'Taxpayer Name: A.B Soterio Construction Corp | TIN: 602-486-232', 1, 2),
+      generateSamplePageImage('BIR TAX TYPES TABLE & FILING DUE DATES', 'VAT, Income Tax, Withholding Expanded & Compensation', 2, 2),
+    ],
+    pageCount: 2,
+    copyType: 'Original',
     uploadedAt: '2021-05-04T09:45:00.000Z',
     expirationDate: '2026-12-31',
     referenceNumber: 'BIR-2303-RDO041-0027',
@@ -334,6 +451,11 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 310000,
     fileData: generateSamplePdfDataUri('BIR AUTHORITY TO PRINT & OFFICIAL INVOICES', 'OCN: OCN-BIR-RR7-2021-008921 | ATP: ATP-2021-094412-BIR'),
+    pages: [
+      generateSamplePageImage('BIR AUTHORITY TO PRINT (ATP) FORM 1921', 'Authorized Invoices Series: 0001 to 5000', 1, 1),
+    ],
+    pageCount: 1,
+    copyType: 'Photocopy',
     uploadedAt: '2021-05-05T10:00:00.000Z',
     expirationDate: '2026-05-04',
     referenceNumber: 'ATP-2021-094412-BIR',
@@ -350,6 +472,12 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 420000,
     fileData: generateSamplePdfDataUri('CITY OF MANDALUYONG - MAYOR’S BUSINESS PERMIT', 'Business: A.B Soterio Construction Corp | Plainview, Mandaluyong City'),
+    pages: [
+      generateSamplePageImage('CITY OF MANDALUYONG - BUSINESS PERMIT 2024', 'Permit Plate No: 2024-0881 | Line of Business: General Contractor', 1, 2),
+      generateSamplePageImage('CITY HEALTH, SANITATION & FIRE SAFETY CERT', 'Bureau of Fire Protection Assessment Mandaluyong', 2, 2),
+    ],
+    pageCount: 2,
+    copyType: 'Photocopy',
     uploadedAt: '2021-05-06T13:20:00.000Z',
     expirationDate: '2024-12-31',
     referenceNumber: 'BP-MANDALUYONG-2024-0881',
@@ -366,6 +494,12 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 510000,
     fileData: generateSamplePdfDataUri('PHILIPPINE CONTRACTORS ACCREDITATION BOARD (PCAB)', 'License No: PCAB-2021-99812 | Category: General Building / Engineering'),
+    pages: [
+      generateSamplePageImage('PHILIPPINE CONTRACTORS ACCREDITATION BOARD LICENSE', 'Principal Classification: General Engineering | Category B', 1, 2),
+      generateSamplePageImage('PCAB SUSTAINING TECHNICAL EMPLOYEES (STE)', 'Accredited Civil Engineers & Safety Officers', 2, 2),
+    ],
+    pageCount: 2,
+    copyType: 'Original',
     uploadedAt: '2021-05-08T15:00:00.000Z',
     expirationDate: '2025-06-30',
     referenceNumber: 'PCAB-2021-99812',
@@ -382,6 +516,13 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 370000,
     fileData: generateSamplePdfDataUri('STATUTORY EMPLOYER REGISTRATIONS', 'SSS No: 03-9981234-1 | PhilHealth: 00291823910 | Pag-IBIG: 1210-9982-1200'),
+    pages: [
+      generateSamplePageImage('SOCIAL SECURITY SYSTEM (SSS) EMPLOYER CLEARANCE', 'Employer ID: 03-9981234-1 | Status: Compliant', 1, 3),
+      generateSamplePageImage('PHILHEALTH CERTIFICATE OF GOOD STANDING', 'PhilHealth Employer No: 00291823910', 2, 3),
+      generateSamplePageImage('PAG-IBIG FUND (HDMF) COMPLIANCE CERTIFICATE', 'Pag-IBIG Employer No: 1210-9982-1200', 3, 3),
+    ],
+    pageCount: 3,
+    copyType: 'Photocopy',
     uploadedAt: '2021-05-10T11:00:00.000Z',
     expirationDate: '2026-05-09',
     referenceNumber: 'STAT-CLR-2021',
@@ -398,6 +539,13 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 630000,
     fileData: generateSamplePdfDataUri('SEC ANNUAL GENERAL INFORMATION SHEET (GIS)', 'A.B Soterio Construction Corp | Annual Corporate Report'),
+    pages: [
+      generateSamplePageImage('SEC ANNUAL GENERAL INFORMATION SHEET 2023', 'A.B Soterio Construction Corp - Page 1 Corporate Information', 1, 3),
+      generateSamplePageImage('SEC GIS - DIRECTORS & OFFICERS SCHEDULE', 'Elected Board of Directors and Shareholdings', 2, 3),
+      generateSamplePageImage('AUDITED FINANCIAL STATEMENTS (AFS) ATTACHMENT', 'Independent Auditor’s Report & Balance Sheet', 3, 3),
+    ],
+    pageCount: 3,
+    copyType: 'Photocopy',
     uploadedAt: '2023-05-12T14:30:00.000Z',
     expirationDate: '2024-04-30',
     referenceNumber: 'SEC-GIS-2023-091',
@@ -415,6 +563,13 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 428000,
     fileData: generateSamplePdfDataUri('IEN REALTY INC. - ENGAGEMENT AGREEMENT', 'Client: Solaris Prime Commercial Tower Holdings | CIF: IEN-CIF-2024-8891'),
+    pages: [
+      generateSamplePageImage('IEN REALTY INC. - ENGAGEMENT AGREEMENT', 'Solaris Prime Commercial Tower Holdings - Master Brokerage', 1, 3),
+      generateSamplePageImage('COMMISSION SCHEDULE & FACILITY LEASE TERMS', 'BGC Commercial Office Tower Asset Portfolio', 2, 3),
+      generateSamplePageImage('OFFICIAL NOTARIAL ATTESTATION & SIGNATURES', 'Notary Public Taguig City - Series of 2024', 3, 3),
+    ],
+    pageCount: 3,
+    copyType: 'Original',
     uploadedAt: '2024-03-15T09:30:00.000Z',
     expirationDate: '2027-03-14',
     referenceNumber: 'AGR-IEN-2024-019',
@@ -431,6 +586,11 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 312000,
     fileData: generateSamplePdfDataUri('DTI BUSINESS NAME CERTIFICATE', 'Business Name: Solaris Commercial Plaza | BN No: 5892014-2024'),
+    pages: [
+      generateSamplePageImage('DTI BUSINESS NAME REGISTRATION CERTIFICATE', 'Business Name: Solaris Commercial Plaza | BN No: 5892014', 1, 1),
+    ],
+    pageCount: 1,
+    copyType: 'Certified True Copy',
     uploadedAt: '2024-03-16T11:00:00.000Z',
     expirationDate: '2029-03-15',
     referenceNumber: 'DTI-BN-5892014',
@@ -447,6 +607,12 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 520000,
     fileData: generateSamplePdfDataUri('BIR FORM 2303 - CERTIFICATE OF REGISTRATION', 'TIN: 009-876-543-000 | RDO 044 - Taguig / Pateros'),
+    pages: [
+      generateSamplePageImage('BIR FORM 2303 - CERTIFICATE OF REGISTRATION', 'Solaris Prime Commercial Tower Holdings | TIN: 009-876-543-000', 1, 2),
+      generateSamplePageImage('BIR TAX SCHEDULE & PERMIT TO OPERATE', 'RDO 044 Taguig City - Tax Compliance Matrix', 2, 2),
+    ],
+    pageCount: 2,
+    copyType: 'Original',
     uploadedAt: '2024-03-18T14:15:00.000Z',
     expirationDate: '2027-01-31',
     referenceNumber: 'BIR-2303-RDO044-889',
@@ -463,6 +629,11 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 289000,
     fileData: generateSamplePdfDataUri('BIR AUTHORITY TO PRINT (ATP) & OCN', 'OCN: OCN-BIR-RR8-2024-004521 | ATP: ATP-2024-098871-BIR'),
+    pages: [
+      generateSamplePageImage('BIR AUTHORITY TO PRINT (ATP) OFFICIAL RECEIPTS', 'Approved Serial Series 000001 - 050000', 1, 1),
+    ],
+    pageCount: 1,
+    copyType: 'Original',
     uploadedAt: '2024-03-20T10:00:00.000Z',
     expirationDate: '2029-03-19',
     referenceNumber: 'ATP-2024-098871-BIR',
@@ -479,6 +650,12 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 450000,
     fileData: generateSamplePdfDataUri('CITY OF TAGUIG - MAYORS BUSINESS PERMIT', 'Permit No: BGC-2026-009182 | Valid for Calendar Year 2026'),
+    pages: [
+      generateSamplePageImage('CITY OF TAGUIG - MAYOR’S PERMIT 2026', 'Permit No: BGC-2026-009182 | Commercial Tower Leasing', 1, 2),
+      generateSamplePageImage('TAGUIG BPLO TAX BILL RECEIPT & SANITARY CLEARANCE', 'Official Receipt No. 8920192-BGC', 2, 2),
+    ],
+    pageCount: 2,
+    copyType: 'Original',
     uploadedAt: '2026-01-15T09:00:00.000Z',
     expirationDate: '2026-12-31',
     referenceNumber: 'BGC-MP-2026-009182',
@@ -495,6 +672,11 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 340000,
     fileData: generateSamplePdfDataUri('SSS EMPLOYER REGISTRATION (FORM R-1A)', 'Employer SSS No: 03-9988112-4 | Solaris Prime Holdings'),
+    pages: [
+      generateSamplePageImage('SSS EMPLOYER REGISTRATION (FORM R-1A)', 'Employer SSS No: 03-9988112-4 | Taguig City Branch', 1, 1),
+    ],
+    pageCount: 1,
+    copyType: 'Photocopy',
     uploadedAt: '2024-03-22T13:40:00.000Z',
     expirationDate: '',
     referenceNumber: 'SSS-ER-03-9988112-4',
@@ -511,6 +693,11 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 390000,
     fileData: generateSamplePdfDataUri('BMBE CERTIFICATE OF AUTHORITY', 'Republic Act No. 9178 | Certificate No: BMBE-NCR-2025-0819'),
+    pages: [
+      generateSamplePageImage('BMBE CERTIFICATE OF AUTHORITY (RA 9178)', 'Micro Business Enterprise Tax Exemption Authority', 1, 1),
+    ],
+    pageCount: 1,
+    copyType: 'Original',
     uploadedAt: '2025-02-10T15:20:00.000Z',
     expirationDate: '2027-02-09',
     referenceNumber: 'BMBE-NCR-2025-0819',
@@ -527,6 +714,13 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 620000,
     fileData: generateSamplePdfDataUri('REGISTRY OF DEEDS - CCT TITLE DEED', 'CCT No. 014-202400981 | Taguig Registry of Deeds'),
+    pages: [
+      generateSamplePageImage('REGISTRY OF DEEDS - CONDOMINIUM CERTIFICATE OF TITLE', 'CCT No. 014-202400981 | Unit 2804 Solaris Tower BGC', 1, 3),
+      generateSamplePageImage('TECHNICAL DESCRIPTION & FLOOR PLAN ATTACHMENT', 'Survey Plan No. PSD-00-089124 - 450 sq. meters', 2, 3),
+      generateSamplePageImage('MASTER DEED WITH DECLARATION OF RESTRICTIONS', 'Condominium Corporation Registration & Easements', 3, 3),
+    ],
+    pageCount: 3,
+    copyType: 'Certified True Copy',
     uploadedAt: '2024-03-15T09:00:00.000Z',
     expirationDate: '',
     referenceNumber: 'CCT-014-202400981',
@@ -545,6 +739,12 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 410000,
     fileData: generateSamplePdfDataUri('IEN REALTY INC. - COMMERCIAL LEASE AGREEMENT', 'Client: Avenue Heights Realty & Development Corp | CIF: IEN-CIF-2025-4412'),
+    pages: [
+      generateSamplePageImage('COMMERCIAL LEASE & BROKERAGE AGREEMENT', 'Avenue Heights Realty & Development Corp', 1, 2),
+      generateSamplePageImage('SCHEDULE OF RENTALS & NOTARIAL ACKNOWLEDGMENT', 'Monthly Rental PHP 350,000.00 + VAT', 2, 2),
+    ],
+    pageCount: 2,
+    copyType: 'Original',
     uploadedAt: '2025-01-10T10:00:00.000Z',
     expirationDate: '2026-09-15',
     referenceNumber: 'AGR-IEN-2025-008',
@@ -561,6 +761,11 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 490000,
     fileData: generateSamplePdfDataUri('BIR FORM 2303 - TAX REGISTRATION', 'TIN: 412-339-810-000 | RDO 043 - Pasig'),
+    pages: [
+      generateSamplePageImage('BIR FORM 2303 - CERTIFICATE OF REGISTRATION', 'Avenue Heights Realty | TIN: 412-339-810-000', 1, 1),
+    ],
+    pageCount: 1,
+    copyType: 'Photocopy',
     uploadedAt: '2025-01-12T14:00:00.000Z',
     expirationDate: '',
     referenceNumber: 'BIR-2303-PASIG-4412',
@@ -577,6 +782,11 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 375000,
     fileData: generateSamplePdfDataUri('CITY OF PASIG - MAYORS PERMIT', 'Permit No: PSG-2026-118920 | Avenue Heights Realty'),
+    pages: [
+      generateSamplePageImage('CITY OF PASIG - MAYOR’S BUSINESS PERMIT 2026', 'Permit No: PSG-2026-118920 | Ortigas Center Pasig', 1, 1),
+    ],
+    pageCount: 1,
+    copyType: 'Original',
     uploadedAt: '2026-01-18T11:30:00.000Z',
     expirationDate: '2026-12-31',
     referenceNumber: 'PSG-MP-2026-118920',
@@ -595,6 +805,13 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 490000,
     fileData: generateSamplePdfDataUri('IEN REALTY INC. - INDUSTRIAL LEASE CONTRACT', 'Client: Zenith Logistics & Warehousing Hub | Maturity: Aug 31, 2026'),
+    pages: [
+      generateSamplePageImage('INDUSTRIAL LEASE & WAREHOUSING CONTRACT', 'Zenith Logistics & Warehousing Hub - Biñan Laguna', 1, 3),
+      generateSamplePageImage('WAREHOUSE COLD STORAGE & YARD SPECIFICATIONS', 'High-Bay Storage Facility - 12,000 sq. meters', 2, 3),
+      generateSamplePageImage('INSURANCE, INDEMNITY & NOTARIAL REGISTRATION', 'Atty. Cristina Bautista - Notary Laguna', 3, 3),
+    ],
+    pageCount: 3,
+    copyType: 'Original',
     uploadedAt: '2023-08-01T11:00:00.000Z',
     expirationDate: '2026-08-31',
     referenceNumber: 'LEASE-IEN-2023-88',
@@ -611,6 +828,11 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 380000,
     fileData: generateSamplePdfDataUri('CITY OF BINAN - MAYORS BUSINESS PERMIT', 'Permit No: LAG-BIN-2026-4412 | Zenith Logistics'),
+    pages: [
+      generateSamplePageImage('CITY OF BIÑAN - INDUSTRIAL BUSINESS PERMIT', 'Permit No: LAG-BIN-2026-4412 | Laguna Technopark', 1, 1),
+    ],
+    pageCount: 1,
+    copyType: 'Photocopy',
     uploadedAt: '2026-01-20T10:00:00.000Z',
     expirationDate: '2026-12-31',
     referenceNumber: 'LAG-BIN-2026-4412',
@@ -629,6 +851,12 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 460000,
     fileData: generateSamplePdfDataUri('IEN REALTY INC. - FACILITY MANAGEMENT AGREEMENT', 'Client: Apex Innovations BPO Solutions Phils. | CIF: IEN-CIF-2025-7721'),
+    pages: [
+      generateSamplePageImage('COMMERCIAL FACILITY MANAGEMENT AGREEMENT', 'Apex Innovations BPO Solutions Phils. - Makati Hub', 1, 2),
+      generateSamplePageImage('PEZA COMPLIANCE & 24/7 POWER BACKUP ANNEX', 'IT Park Accreditation & Redundant Genset Terms', 2, 2),
+    ],
+    pageCount: 2,
+    copyType: 'Original',
     uploadedAt: '2025-05-20T09:00:00.000Z',
     expirationDate: '2028-05-19',
     referenceNumber: 'AGR-IEN-2025-044',
@@ -645,6 +873,11 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 510000,
     fileData: generateSamplePdfDataUri('BIR FORM 2303 - TAX REGISTRATION', 'TIN: 008-542-190-000 | RDO 048 - West Makati'),
+    pages: [
+      generateSamplePageImage('BIR FORM 2303 - TAX REGISTRATION CERTIFICATE', 'Apex Innovations BPO | TIN: 008-542-190-000', 1, 1),
+    ],
+    pageCount: 1,
+    copyType: 'Certified True Copy',
     uploadedAt: '2025-05-22T11:00:00.000Z',
     expirationDate: '',
     referenceNumber: 'BIR-2303-MAKATI-7721',
@@ -661,6 +894,11 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'application/pdf',
     fileSize: 420000,
     fileData: generateSamplePdfDataUri('CITY OF MAKATI - MAYORS BUSINESS PERMIT', 'Permit No: MKT-2026-990142 | Apex Innovations BPO'),
+    pages: [
+      generateSamplePageImage('CITY OF MAKATI - MAYOR’S BUSINESS PERMIT 2026', 'Permit No: MKT-2026-990142 | Ayala Avenue Makati', 1, 1),
+    ],
+    pageCount: 1,
+    copyType: 'Original',
     uploadedAt: '2026-01-14T10:15:00.000Z',
     expirationDate: '2026-12-31',
     referenceNumber: 'MKT-MP-2026-990142',
