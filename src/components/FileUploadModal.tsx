@@ -495,16 +495,16 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (window.confirm(`Are you sure you want to permanently erase "${editingDoc.fileName}"?`)) {
+                    if (window.confirm(`Move "${editingDoc.fileName}" to the Recycle Bin (Trash)? You can restore it anytime.`)) {
                       onDeleteDocument(editingDoc.id);
                       onClose();
                     }
                   }}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-700 border border-rose-200 hover:border-rose-600 transition flex items-center gap-1.5 shadow-2xs"
-                  title="Erase / Delete Document"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-500 hover:text-slate-950 text-amber-800 border border-amber-200 hover:border-amber-500 transition flex items-center gap-1.5 shadow-2xs"
+                  title="Move Document to Recycle Bin (Trash)"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Erase File</span>
+                  <span>Move to Trash</span>
                 </button>
               ) : (
                 <div />

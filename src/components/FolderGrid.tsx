@@ -69,10 +69,13 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
   // Active folder object
   const currentFolder = folders.find((f) => f.id === selectedFolderId);
 
+  // Filter documents to active (non-deleted) items
+  const activeDocuments = documents.filter((d) => !d.isDeleted);
+
   // Filter documents by active folder if one is selected
   const folderDocuments = selectedFolderId
-    ? documents.filter((d) => d.folderId === selectedFolderId)
-    : documents;
+    ? activeDocuments.filter((d) => d.folderId === selectedFolderId)
+    : activeDocuments;
 
   // Filter by search text and status
   const filteredDocuments = folderDocuments.filter((doc) => {
@@ -191,7 +194,7 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
                 <FileText className="w-3.5 h-3.5 text-sky-600" />
                 <span>View All Documents</span>
                 <span className="px-1.5 py-0.2 rounded-full bg-sky-200 text-sky-900 text-[10px] font-bold">
-                  {documents.length}
+                  {activeDocuments.length}
                 </span>
               </button>
 
@@ -211,7 +214,7 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
           {/* 01-08 Folders Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {folders.map((folder) => {
-              const folderDocs = documents.filter((d) => d.folderId === folder.id);
+              const folderDocs = activeDocuments.filter((d) => d.folderId === folder.id);
               const docCount = folderDocs.length;
 
               const expiredCount = folderDocs.filter((d) => {
@@ -912,20 +915,20 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
         </div>
       )}
 
-      {/* CONFIRM ERASE / DELETE MODAL */}
+      {/* CONFIRM MOVE TO RECYCLE BIN / TRASH MODAL */}
       {docToDelete && (
         <div className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-slate-900 animate-fade-in">
-            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mb-4 border border-rose-200">
-              <Trash2 className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mb-4 border border-amber-200">
+              <Archive className="w-6 h-6" />
             </div>
 
             <h3 className="text-base font-extrabold text-slate-900">
-              Erase / Delete Document?
+              Move Document to Recycle Bin?
             </h3>
             
             <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-              Are you sure you want to permanently erase this document?
+              This document will be moved to the <strong>Recycle Bin (Trash)</strong>. It is <strong>NOT permanently deleted</strong> and can be restored back to Folder {docToDelete.folderCode || '00'} at any time.
             </p>
 
             <div className="my-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
@@ -937,10 +940,13 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
               </p>
             </div>
 
-            <p className="text-[11px] text-rose-600 font-semibold flex items-center gap-1 mb-5">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              This file will be permanently removed from this client's compliance vault.
-            </p>
+            <div className="p-3 bg-sky-50 border border-sky-200 rounded-xl mb-5 flex items-start gap-2 text-xs text-sky-800">
+              <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+              <div className="text-[11px] leading-relaxed">
+                <span className="font-bold block">Safe Recycle Active (Not Permanent)</span>
+                Deleted files are stored safely in the Recycle Bin where you or the Human Resource Administrator can review, preview, or restore them anytime.
+              </div>
+            </div>
 
             <div className="flex items-center justify-end gap-2.5">
               <button
@@ -956,10 +962,10 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
                   onDeleteDocument(docToDelete.id);
                   setDocToDelete(null);
                 }}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white transition shadow-sm shadow-rose-600/20 flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 transition shadow-sm shadow-amber-500/20 flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Yes, Erase File</span>
+                <span>Move to Recycle Bin</span>
               </button>
             </div>
           </div>

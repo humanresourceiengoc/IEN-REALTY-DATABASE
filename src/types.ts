@@ -84,6 +84,8 @@ export interface DocumentItem {
   notes?: string;
   tags?: string[];
   transmittal?: TransmittalInfo;
+  isDeleted?: boolean;
+  deletedAt?: string; // ISO date string
 }
 
 export type UrgencySeverity = 'expired' | 'urgent' | 'warning' | 'notice' | 'good';

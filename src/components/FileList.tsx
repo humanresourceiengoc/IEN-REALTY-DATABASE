@@ -60,10 +60,13 @@ export const FileList: React.FC<FileListProps> = ({
   // Selected folder object
   const currentFolder = folders.find((f) => f.id === selectedFolderId);
 
+  // Filter active (non-deleted) documents
+  const activeDocs = documents.filter((d) => !d.isDeleted);
+
   // Filter by active folder
   const folderFilteredDocs = selectedFolderId && selectedFolderId !== 'all_files'
-    ? documents.filter((d) => d.folderId === selectedFolderId)
-    : documents;
+    ? activeDocs.filter((d) => d.folderId === selectedFolderId)
+    : activeDocs;
 
   // Filter by search and status
   const filteredDocs = folderFilteredDocs.filter((doc) => {
@@ -495,18 +498,18 @@ export const FileList: React.FC<FileListProps> = ({
                           <span>Edit</span>
                         </button>
 
-                        {/* Erase / Delete */}
+                        {/* Move to Recycle Bin / Trash */}
                         <button
                           onClick={() => {
-                            if (window.confirm(`Are you sure you want to permanently erase "${doc.fileName}"?`)) {
+                            if (window.confirm(`Move "${doc.fileName}" to the Recycle Bin (Trash)? You can restore it anytime.`)) {
                               onDeleteDocument(doc.id);
                             }
                           }}
-                          className="px-2 py-1.5 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-700 font-bold rounded-lg border border-rose-200 hover:border-rose-600 transition text-xs flex items-center gap-1 shadow-2xs"
-                          title="Erase / Delete Document"
+                          className="px-2 py-1.5 bg-amber-50 hover:bg-amber-500 hover:text-slate-950 text-amber-800 font-bold rounded-lg border border-amber-200 hover:border-amber-500 transition text-xs flex items-center gap-1 shadow-2xs"
+                          title="Move Document to Recycle Bin (Trash)"
                         >
-                          <Trash2 className="w-3.5 h-3.5 text-rose-600 group-hover:text-white" />
-                          <span>Erase</span>
+                          <Archive className="w-3.5 h-3.5 text-amber-700 group-hover:text-slate-950" />
+                          <span>Recycle</span>
                         </button>
 
                         {/* Download PDF */}

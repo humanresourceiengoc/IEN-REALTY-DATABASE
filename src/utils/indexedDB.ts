@@ -608,7 +608,25 @@ class StorageService {
     }
   }
 
-  public async deleteDocument(documentId: string): Promise<void> {
+  public async softDeleteDocument(documentId: string): Promise<void> {
+    const docItem = await this.getDocumentById(documentId);
+    if (docItem) {
+      docItem.isDeleted = true;
+      docItem.deletedAt = new Date().toISOString();
+      await this.saveDocument(docItem);
+    }
+  }
+
+  public async restoreDocument(documentId: string): Promise<void> {
+    const docItem = await this.getDocumentById(documentId);
+    if (docItem) {
+      docItem.isDeleted = false;
+      delete docItem.deletedAt;
+      await this.saveDocument(docItem);
+    }
+  }
+
+  public async permanentlyDeleteDocument(documentId: string): Promise<void> {
     this.memoryDocs = this.memoryDocs.filter((d) => d.id !== documentId);
 
     if (!this.useMemory) {
@@ -617,7 +635,7 @@ class StorageService {
         const tx = idb.transaction(STORES.DOCUMENTS, 'readwrite');
         tx.objectStore(STORES.DOCUMENTS).delete(documentId);
       } catch (err) {
-        console.warn('Local deleteDocument failed:', err);
+        console.warn('Local permanentlyDeleteDocument failed:', err);
       }
     }
 
@@ -626,8 +644,13 @@ class StorageService {
       await deleteDoc(doc(db, 'documents', documentId));
       this.notifyDataChange({ type: 'documents' });
     } catch (e) {
-      console.warn('Cloud delete document note:', e);
+      console.warn('Cloud permanent delete document note:', e);
     }
+  }
+
+  public async deleteDocument(documentId: string): Promise<void> {
+    // Default to soft delete so files are NEVER permanently erased accidentally
+    await this.softDeleteDocument(documentId);
   }
 
   // Custom Folders API

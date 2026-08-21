@@ -23,7 +23,8 @@ import {
   Sparkles,
   Cloud,
   RefreshCw,
-  HelpCircle
+  HelpCircle,
+  Archive
 } from 'lucide-react';
 import { ClientProfile, DeadlineAlert, UserSession, CloudSyncState } from '../types';
 import { formatDateDisplay } from '../utils/dateUtils';
@@ -37,6 +38,7 @@ interface HeaderProps {
   currentUser: UserSession | null;
   pendingRequestsCount: number;
   syncState?: CloudSyncState;
+  deletedDocsCount?: number;
   onNavigateToDirectory: () => void;
   onNavigateToClientDetail: () => void;
   onSelectClient: (client: ClientProfile) => void;
@@ -45,6 +47,7 @@ interface HeaderProps {
   onOpenComplianceSummary: () => void;
   onOpenUploadModal: () => void;
   onOpenSecurityModal: () => void;
+  onOpenRecycleBin?: () => void;
   onOpenSyncModal?: () => void;
   onOpenVerificationModal?: () => void;
   onLogout: () => void;
@@ -60,6 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   pendingRequestsCount,
   syncState,
+  deletedDocsCount = 0,
   onNavigateToDirectory,
   onNavigateToClientDetail,
   onSelectClient,
@@ -68,6 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenComplianceSummary,
   onOpenUploadModal,
   onOpenSecurityModal,
+  onOpenRecycleBin,
   onOpenSyncModal,
   onOpenVerificationModal,
   onLogout,
@@ -361,6 +366,25 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
+            {/* Recycle Bin & Soft Deleted Files */}
+            <button
+              id="header-recycle-bin-btn"
+              onClick={onOpenRecycleBin}
+              className={`relative p-2 rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-amber-400 shrink-0 ${
+                deletedDocsCount > 0
+                  ? 'bg-amber-950/40 hover:bg-amber-900/50 border-amber-500/40 text-amber-300'
+                  : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
+              }`}
+              title="Recycle Bin: Soft-Deleted & Restorable Files"
+            >
+              <Archive className="w-4 h-4 shrink-0" />
+              {deletedDocsCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-amber-500 text-[9px] font-extrabold text-slate-950 shadow-md">
+                  {deletedDocsCount > 9 ? '9+' : deletedDocsCount}
+                </span>
+              )}
+            </button>
+
             {/* Notification & Deadline Alert Bell */}
             <button
               id="header-alert-bell-btn"
@@ -454,6 +478,24 @@ export const Header: React.FC<HeaderProps> = ({
                         <span>Cloud Multi-Device Sync Center</span>
                       </span>
                       <span className="text-[10px] text-emerald-400 font-mono">Live</span>
+                    </button>
+
+                    {/* Recycle Bin / Soft-Deleted Files */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        if (onOpenRecycleBin) onOpenRecycleBin();
+                      }}
+                      className="w-full px-3 py-2 text-xs text-left font-bold text-amber-300 hover:bg-slate-800 rounded-xl transition flex items-center justify-between border border-amber-500/20 bg-amber-950/20"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Archive className="w-4 h-4 text-amber-400" />
+                        <span>Recycle Bin (Trash Vault)</span>
+                      </span>
+                      <span className="text-[10px] text-amber-400 font-mono">
+                        {deletedDocsCount} {deletedDocsCount === 1 ? 'file' : 'files'}
+                      </span>
                     </button>
 
                     {/* Change Logo */}

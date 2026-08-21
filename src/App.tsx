@@ -48,6 +48,7 @@ import { MasterVerificationGate } from './components/MasterVerificationGate';
 import { SecurityGatekeeperModal } from './components/SecurityGatekeeperModal';
 import { CloudRealtimeSyncModal } from './components/CloudRealtimeSyncModal';
 import { AccountVerificationModal } from './components/AccountVerificationModal';
+import { RecycleBinModal } from './components/RecycleBinModal';
 import { CloudSyncState } from './types';
 
 export default function App() {
@@ -67,6 +68,7 @@ export default function App() {
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
   const [isEditClientModalOpen, setIsEditClientModalOpen] = useState(false);
   const [editingClientData, setEditingClientData] = useState<ClientProfile | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -171,15 +173,21 @@ export default function App() {
     return [...DEFAULT_FOLDERS, ...customFolders];
   }, [customFolders]);
 
-  // Documents for the current active client
+  // Documents for the current active client (active, non-deleted)
   const clientDocuments = useMemo(() => {
     if (!selectedClient) return [];
-    return documents.filter((d) => d.clientId === selectedClient.id);
+    return documents.filter((d) => d.clientId === selectedClient.id && !d.isDeleted);
   }, [documents, selectedClient]);
 
-  // Compute all deadlines & alerts
+  // Recycled / Soft-deleted documents across the system
+  const deletedDocuments = useMemo(() => {
+    return documents.filter((d) => d.isDeleted);
+  }, [documents]);
+
+  // Compute all deadlines & alerts (active non-deleted only)
   const allAlerts = useMemo(() => {
-    return generateAllAlerts(clients, documents);
+    const activeDocs = documents.filter((d) => !d.isDeleted);
+    return generateAllAlerts(clients, activeDocs);
   }, [clients, documents]);
 
   // Handle Client Selection & Drill Down into Files/Folders
@@ -251,11 +259,58 @@ export default function App() {
     }
   };
 
-  // Delete Document
+  // Soft Delete Document (Move to Recycle Bin - NOT Permanent)
   const handleDeleteDocument = async (docId: string) => {
-    await dbService.deleteDocument(docId);
+    const doc = documents.find((d) => d.id === docId);
+    if (doc) {
+      const updated: DocumentItem = {
+        ...doc,
+        isDeleted: true,
+        deletedAt: new Date().toISOString(),
+      };
+      await dbService.saveDocument(updated);
+      setDocuments((prev) => prev.map((d) => (d.id === docId ? updated : d)));
+      showToast(`Moved "${doc.fileName}" to Recycle Bin (Trash).`, 'info');
+    }
+  };
+
+  // Restore Document from Recycle Bin back to active folder
+  const handleRestoreDocument = async (docId: string) => {
+    const doc = documents.find((d) => d.id === docId);
+    if (doc) {
+      const updated: DocumentItem = {
+        ...doc,
+        isDeleted: false,
+      };
+      delete updated.deletedAt;
+      await dbService.saveDocument(updated);
+      setDocuments((prev) => prev.map((d) => (d.id === docId ? updated : d)));
+      showToast(`Restored "${doc.fileName}" to active folder.`, 'success');
+    }
+  };
+
+  // Restore All Documents from Recycle Bin
+  const handleRestoreAllDocuments = async () => {
+    const deletedDocs = documents.filter((d) => d.isDeleted);
+    for (const doc of deletedDocs) {
+      const updated: DocumentItem = {
+        ...doc,
+        isDeleted: false,
+      };
+      delete updated.deletedAt;
+      await dbService.saveDocument(updated);
+    }
+    setDocuments((prev) =>
+      prev.map((d) => (d.isDeleted ? { ...d, isDeleted: false, deletedAt: undefined } : d))
+    );
+    showToast(`Restored ${deletedDocs.length} documents to active folders.`, 'success');
+  };
+
+  // Permanently Purge Document from Recycle Bin
+  const handlePermanentlyDeleteDocument = async (docId: string) => {
+    await dbService.permanentlyDeleteDocument(docId);
     setDocuments((prev) => prev.filter((d) => d.id !== docId));
-    showToast('Document deleted.', 'info');
+    showToast('Document permanently purged.', 'info');
   };
 
   // Add Custom Folder
@@ -385,6 +440,7 @@ export default function App() {
         currentUser={currentUser}
         pendingRequestsCount={pendingRequestsCount}
         syncState={syncState}
+        deletedDocsCount={deletedDocuments.length}
         onNavigateToDirectory={() => setCurrentView('directory')}
         onNavigateToClientDetail={() => setCurrentView('client-detail')}
         onSelectClient={handleSelectClient}
@@ -396,6 +452,7 @@ export default function App() {
         onOpenComplianceSummary={() => setIsComplianceSummaryOpen(true)}
         onOpenUploadModal={() => handleOpenUploadModal()}
         onOpenSecurityModal={() => setIsSecurityModalOpen(true)}
+        onOpenRecycleBin={() => setIsRecycleBinOpen(true)}
         onOpenSyncModal={() => setIsSyncModalOpen(true)}
         onOpenVerificationModal={() => setIsVerificationModalOpen(true)}
         onLogout={() => {
@@ -667,6 +724,20 @@ export default function App() {
           onOpenGatekeeper={() => setIsSecurityModalOpen(true)}
         />
       )}
+
+      {/* Recycle Bin & Soft Deleted Documents Modal */}
+      <RecycleBinModal
+        isOpen={isRecycleBinOpen}
+        onClose={() => setIsRecycleBinOpen(false)}
+        deletedDocuments={deletedDocuments}
+        clients={clients}
+        folders={allFolders}
+        onRestoreDocument={handleRestoreDocument}
+        onRestoreAllDocuments={handleRestoreAllDocuments}
+        onPermanentlyDeleteDocument={handlePermanentlyDeleteDocument}
+        onPreviewDocument={handlePreviewDoc}
+        currentClientId={currentView === 'client-detail' ? selectedClientId : null}
+      />
 
     </div>
   );

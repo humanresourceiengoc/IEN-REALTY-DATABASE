@@ -20,7 +20,8 @@ import {
   ShieldCheck,
   Archive,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
 import { DocumentItem, FolderDefinition } from '../types';
 import { calculateDaysRemaining, formatDateDisplay, formatRemainingDaysText, getUrgencySeverity } from '../utils/dateUtils';
@@ -474,16 +475,16 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
       {showConfirmDelete && (
         <div className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-slate-900 animate-fade-in">
-            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mb-4 border border-rose-200">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mb-4 border border-amber-200">
               <Trash2 className="w-6 h-6" />
             </div>
 
             <h3 className="text-base font-extrabold text-slate-900">
-              Erase / Delete Document?
+              Move Document to Recycle Bin?
             </h3>
             
             <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-              Are you sure you want to permanently erase this file from the folder registry?
+              Are you sure you want to move this file to the <strong>Recycle Bin (Trash)</strong>? It will <strong>NOT be permanently deleted</strong> and can be restored back to its folder anytime.
             </p>
 
             <div className="my-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
@@ -495,9 +496,9 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
               </p>
             </div>
 
-            <p className="text-[11px] text-rose-600 font-semibold flex items-center gap-1 mb-5">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              This action will remove the PDF file and its metadata.
+            <p className="text-[11px] text-sky-700 bg-sky-50 p-2.5 rounded-xl border border-sky-200 font-semibold flex items-center gap-1.5 mb-5">
+              <CheckCircle2 className="w-4 h-4 text-sky-600 shrink-0" />
+              <span>Safe Recycle: File can be restored from the Recycle Bin anytime.</span>
             </p>
 
             <div className="flex items-center justify-end gap-2.5">
@@ -511,10 +512,10 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white transition shadow-sm shadow-rose-600/20 flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 transition shadow-sm shadow-amber-500/20 flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Yes, Erase File</span>
+                <span>Move to Recycle Bin</span>
               </button>
             </div>
           </div>
