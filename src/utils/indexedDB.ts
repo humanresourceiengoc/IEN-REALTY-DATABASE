@@ -36,6 +36,7 @@ class StorageService {
   private memoryFolders: FolderDefinition[] = [...INITIAL_CUSTOM_FOLDERS];
   private memorySettings: Record<string, unknown> = {};
   private useMemory = false;
+  private deletedDocIds = new Set<string>();
   
   private dataChangeListeners: Array<(event: { type: 'clients' | 'documents' | 'folders' | 'all' }) => void> = [];
   private syncStateListeners: Array<(state: CloudSyncState) => void> = [];
@@ -264,7 +265,10 @@ class StorageService {
         async (snapshot) => {
           const remoteDocs: DocumentItem[] = [];
           snapshot.forEach((docSnap) => {
-            remoteDocs.push(docSnap.data() as DocumentItem);
+            const data = docSnap.data() as DocumentItem;
+            if (data && data.id) {
+              remoteDocs.push(data);
+            }
           });
 
           // Fetch current local documents from IndexedDB to preserve large attachments and multi-page scans
@@ -286,12 +290,20 @@ class StorageService {
           const mergedDocs: DocumentItem[] = [];
 
           for (const remote of remoteDocs) {
+            // If permanently deleted locally in this session, skip and delete from Firestore if present
+            if (this.deletedDocIds.has(remote.id)) {
+              continue;
+            }
+
             const local = localDocMap.get(remote.id);
             if (local) {
               // Merge: keep local rich pages/fileData if local has them
+              const isDeleted = remote.isDeleted === true || local.isDeleted === true;
               const merged: DocumentItem = {
                 ...remote,
-                fileData: (local.fileData && local.fileData.length > 50) ? local.fileData : (remote.fileData || local.fileData),
+                isDeleted,
+                deletedAt: remote.deletedAt || local.deletedAt,
+                fileData: (local.fileData && local.fileData.length > 50) ? local.fileData : (remote.fileData || local.fileData || ''),
                 pages: (local.pages && local.pages.length >= (remote.pages?.length || 0) && local.pages.length > 0)
                   ? local.pages
                   : (remote.pages && remote.pages.length > 0 ? remote.pages : local.pages || []),
@@ -304,23 +316,32 @@ class StorageService {
             }
           }
 
-          // Retain local documents that are recently created or pending cloud sync
-          for (const [_, unSyncedDoc] of localDocMap) {
-            if (unSyncedDoc && !unSyncedDoc.isDeleted) {
-              mergedDocs.push(unSyncedDoc);
+          // Retain local documents that are pending cloud sync (ONLY newly added within 10 min and NOT deleted)
+          for (const [docId, unSyncedDoc] of localDocMap) {
+            if (unSyncedDoc && !unSyncedDoc.isDeleted && !this.deletedDocIds.has(docId)) {
+              if (remoteDocs.length === 0 || (unSyncedDoc.uploadedAt && (Date.now() - new Date(unSyncedDoc.uploadedAt).getTime() < 600000))) {
+                mergedDocs.push(unSyncedDoc);
+              }
             }
           }
 
           this.memoryDocs = mergedDocs;
 
-          // Write back merged documents to IndexedDB
+          // Write back merged documents to IndexedDB and ensure pruned documents are cleared
           try {
             const idb = await this.openDB();
             const tx = idb.transaction(STORES.DOCUMENTS, 'readwrite');
             const store = tx.objectStore(STORES.DOCUMENTS);
-            for (const d of mergedDocs) {
-              store.put(d);
-            }
+            await new Promise<void>((resolve, reject) => {
+              const clearReq = store.clear();
+              clearReq.onsuccess = () => {
+                for (const d of mergedDocs) {
+                  store.put(d);
+                }
+                resolve();
+              };
+              clearReq.onerror = () => reject(clearReq.error);
+            });
           } catch (e) {
             console.warn('IndexedDB doc mirror note:', e);
           }
@@ -648,6 +669,7 @@ class StorageService {
   }
 
   public async restoreDocument(documentId: string): Promise<void> {
+    this.deletedDocIds.delete(documentId);
     const docItem = await this.getDocumentById(documentId);
     if (docItem) {
       docItem.isDeleted = false;
@@ -657,6 +679,7 @@ class StorageService {
   }
 
   public async permanentlyDeleteDocument(documentId: string): Promise<void> {
+    this.deletedDocIds.add(documentId);
     this.memoryDocs = this.memoryDocs.filter((d) => d.id !== documentId);
 
     if (!this.useMemory) {
@@ -672,10 +695,11 @@ class StorageService {
     // Delete in Firestore Cloud
     try {
       await deleteDoc(doc(db, 'documents', documentId));
-      this.notifyDataChange({ type: 'documents' });
     } catch (e) {
       console.warn('Cloud permanent delete document note:', e);
     }
+
+    this.notifyDataChange({ type: 'documents' });
   }
 
   public async deleteDocument(documentId: string): Promise<void> {

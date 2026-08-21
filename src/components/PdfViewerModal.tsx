@@ -43,6 +43,7 @@ interface PdfViewerModalProps {
   folder?: FolderDefinition;
   onEditDocument: (doc: DocumentItem) => void;
   onDeleteDocument?: (docId: string) => void;
+  onPermanentlyDeleteDocument?: (docId: string) => void;
   onOpenTransmittal?: (doc: DocumentItem) => void;
 }
 
@@ -53,6 +54,7 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
   folder,
   onEditDocument,
   onDeleteDocument,
+  onPermanentlyDeleteDocument,
   onOpenTransmittal,
 }) => {
   const [zoomLevel, setZoomLevel] = useState(100);
@@ -638,16 +640,16 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
       {showConfirmDelete && (
         <div className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-slate-900 animate-fade-in">
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mb-4 border border-amber-200">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center mb-4 border border-rose-200">
               <Trash2 className="w-6 h-6" />
             </div>
 
             <h3 className="text-base font-extrabold text-slate-900">
-              Move Document to Recycle Bin?
+              Delete Document: "{doc.fileName}"
             </h3>
             
             <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-              Are you sure you want to move this file to the <strong>Recycle Bin (Trash)</strong>? It will <strong>NOT be permanently deleted</strong> and can be restored back to its folder anytime.
+              How would you like to delete this document from <strong>Folder {doc.folderCode || folder?.code || '00'}</strong>?
             </p>
 
             <div className="my-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
@@ -659,26 +661,55 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
               </p>
             </div>
 
-            <p className="text-[11px] text-sky-700 bg-sky-50 p-2.5 rounded-xl border border-sky-200 font-semibold flex items-center gap-1.5 mb-5">
-              <CheckCircle2 className="w-4 h-4 text-sky-600 shrink-0" />
-              <span>Safe Recycle: File can be restored from the Recycle Bin anytime.</span>
-            </p>
+            <div className="space-y-2 mb-5">
+              {/* Option 1: Move to Recycle Bin */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onDeleteDocument) {
+                    onDeleteDocument(doc.id);
+                  }
+                  setShowConfirmDelete(false);
+                  onClose();
+                }}
+                className="w-full text-left p-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100/80 transition flex items-start gap-3 group"
+              >
+                <Archive className="w-4 h-4 text-amber-700 mt-0.5 shrink-0 group-hover:scale-110 transition" />
+                <div>
+                  <p className="text-xs font-bold text-amber-950">Move to Recycle Bin (Safe)</p>
+                  <p className="text-[11px] text-amber-800 leading-snug">Hides from active folders; can be restored anytime from the Recycle Bin.</p>
+                </div>
+              </button>
 
-            <div className="flex items-center justify-end gap-2.5">
+              {/* Option 2: Permanently Delete */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onPermanentlyDeleteDocument) {
+                    onPermanentlyDeleteDocument(doc.id);
+                  } else if (onDeleteDocument) {
+                    onDeleteDocument(doc.id);
+                  }
+                  setShowConfirmDelete(false);
+                  onClose();
+                }}
+                className="w-full text-left p-3 rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100/80 transition flex items-start gap-3 group"
+              >
+                <Trash2 className="w-4 h-4 text-rose-700 mt-0.5 shrink-0 group-hover:scale-110 transition" />
+                <div>
+                  <p className="text-xs font-bold text-rose-950">Permanently Erase &amp; Delete Now</p>
+                  <p className="text-[11px] text-rose-800 leading-snug">Immediately and permanently purges this document from local and cloud storage.</p>
+                </div>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => setShowConfirmDelete(false)}
                 className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
               >
                 Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmDelete}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 transition shadow-sm shadow-amber-500/20 flex items-center gap-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Move to Recycle Bin</span>
               </button>
             </div>
           </div>

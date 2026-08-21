@@ -578,6 +578,7 @@ export default function App() {
                 onPreviewDocument={handlePreviewDoc}
                 onEditDocument={handleOpenEditDocModal}
                 onDeleteDocument={handleDeleteDocument}
+                onPermanentlyDeleteDocument={handlePermanentlyDeleteDocument}
                 onQuickRename={handleQuickRenameDocument}
                 onOpenTransmittal={handleOpenTransmittal}
                 onBackToDirectory={() => setCurrentView('directory')}
@@ -653,6 +654,7 @@ export default function App() {
           folder={allFolders.find((f) => f.id === previewDoc.folderId)}
           onEditDocument={handleOpenEditDocModal}
           onDeleteDocument={handleDeleteDocument}
+          onPermanentlyDeleteDocument={handlePermanentlyDeleteDocument}
           onOpenTransmittal={handleOpenTransmittal}
         />
       )}

@@ -41,6 +41,7 @@ interface FolderGridProps {
   onPreviewDocument: (doc: DocumentItem) => void;
   onEditDocument: (doc: DocumentItem) => void;
   onDeleteDocument: (docId: string) => void;
+  onPermanentlyDeleteDocument?: (docId: string) => void;
   onQuickRename: (docId: string, newName: string) => void;
   onOpenTransmittal?: (doc: DocumentItem) => void;
   onBackToDirectory?: () => void;
@@ -56,6 +57,7 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
   onPreviewDocument,
   onEditDocument,
   onDeleteDocument,
+  onPermanentlyDeleteDocument,
   onQuickRename,
   onOpenTransmittal,
   onBackToDirectory,
@@ -915,20 +917,20 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
         </div>
       )}
 
-      {/* CONFIRM MOVE TO RECYCLE BIN / TRASH MODAL */}
+      {/* CONFIRM MOVE TO RECYCLE BIN / PERMANENT DELETE MODAL */}
       {docToDelete && (
         <div className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-slate-900 animate-fade-in">
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mb-4 border border-amber-200">
-              <Archive className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center mb-4 border border-rose-200">
+              <Trash2 className="w-6 h-6" />
             </div>
 
             <h3 className="text-base font-extrabold text-slate-900">
-              Move Document to Recycle Bin?
+              Delete Document: "{docToDelete.fileName}"
             </h3>
             
             <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-              This document will be moved to the <strong>Recycle Bin (Trash)</strong>. It is <strong>NOT permanently deleted</strong> and can be restored back to Folder {docToDelete.folderCode || '00'} at any time.
+              How would you like to delete this document from <strong>Folder {docToDelete.folderCode || '00'}</strong>?
             </p>
 
             <div className="my-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
@@ -940,32 +942,51 @@ export const FolderGrid: React.FC<FolderGridProps> = ({
               </p>
             </div>
 
-            <div className="p-3 bg-sky-50 border border-sky-200 rounded-xl mb-5 flex items-start gap-2 text-xs text-sky-800">
-              <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
-              <div className="text-[11px] leading-relaxed">
-                <span className="font-bold block">Safe Recycle Active (Not Permanent)</span>
-                Deleted files are stored safely in the Recycle Bin where you or the Human Resource Administrator can review, preview, or restore them anytime.
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setDocToDelete(null)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
-              >
-                Cancel
-              </button>
+            <div className="space-y-2 mb-5">
+              {/* Option 1: Move to Recycle Bin */}
               <button
                 type="button"
                 onClick={() => {
                   onDeleteDocument(docToDelete.id);
                   setDocToDelete(null);
                 }}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 transition shadow-sm shadow-amber-500/20 flex items-center gap-1.5"
+                className="w-full text-left p-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100/80 transition flex items-start gap-3 group"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Move to Recycle Bin</span>
+                <Archive className="w-4 h-4 text-amber-700 mt-0.5 shrink-0 group-hover:scale-110 transition" />
+                <div>
+                  <p className="text-xs font-bold text-amber-950">Move to Recycle Bin (Recommended)</p>
+                  <p className="text-[11px] text-amber-800 leading-snug">Hides from active folders but can be restored anytime from the Recycle Bin Vault.</p>
+                </div>
+              </button>
+
+              {/* Option 2: Permanently Delete */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onPermanentlyDeleteDocument) {
+                    onPermanentlyDeleteDocument(docToDelete.id);
+                  } else {
+                    onDeleteDocument(docToDelete.id);
+                  }
+                  setDocToDelete(null);
+                }}
+                className="w-full text-left p-3 rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100/80 transition flex items-start gap-3 group"
+              >
+                <Trash2 className="w-4 h-4 text-rose-700 mt-0.5 shrink-0 group-hover:scale-110 transition" />
+                <div>
+                  <p className="text-xs font-bold text-rose-950">Permanently Erase &amp; Delete Now</p>
+                  <p className="text-[11px] text-rose-800 leading-snug">Instantly and permanently purges the file from local memory and cloud database.</p>
+                </div>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setDocToDelete(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
+              >
+                Cancel
               </button>
             </div>
           </div>
