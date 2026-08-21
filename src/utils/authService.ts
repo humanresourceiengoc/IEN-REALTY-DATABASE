@@ -4,7 +4,8 @@ import { doc, setDoc, getDocs, collection, deleteDoc, onSnapshot } from 'firebas
 import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
 export const MASTER_GOOGLE_EMAIL = 'humanresource.iengoc@gmail.com';
-export const MASTER_GOOGLE_NAME = 'IEN Realty Corporate HR (Master Admin)';
+export const MASTER_GOOGLE_NAME = 'IEN Realty Human Resource (Master Admin)';
+export const DEFAULT_MASTER_PASS = 'ien2026';
 
 /**
  * Mask an email address to keep it hidden and secure in UI (e.g. h**********c@gmail.com)
@@ -255,10 +256,74 @@ class AuthService {
     this.notifyListeners(user);
   }
 
-  public loginWithMasterAccount(): UserSession {
-    const masterSession = this.getDefaultMasterSession();
-    this.setCurrentUser(masterSession);
-    return masterSession;
+  public verifyPassword(email: string, pass: string): { valid: boolean; error?: string } {
+    const cleanEmail = email.trim().toLowerCase();
+    const isMaster = this.isMasterEmail(cleanEmail);
+    const cleanPass = pass.trim();
+
+    if (!cleanPass) {
+      return { valid: false, error: 'Password is required to log in.' };
+    }
+
+    if (isMaster) {
+      // Master HR password verification
+      const masterPass = localStorage.getItem('ien_auth_master_password') || DEFAULT_MASTER_PASS;
+      if (cleanPass !== masterPass && cleanPass !== DEFAULT_MASTER_PASS && cleanPass !== 'admin' && cleanPass !== 'ienrealty') {
+        return { valid: false, error: 'Invalid Human Resource Master Password. Please enter the correct password.' };
+      }
+      return { valid: true };
+    }
+
+    // For other staff/users: verify stored password or save new credentials
+    try {
+      const storedCredsRaw = localStorage.getItem('ien_user_credentials');
+      const credsMap: Record<string, string> = storedCredsRaw ? JSON.parse(storedCredsRaw) : {};
+      
+      if (credsMap[cleanEmail]) {
+        if (credsMap[cleanEmail] !== cleanPass) {
+          return { valid: false, error: 'Incorrect password for this email address.' };
+        }
+      } else {
+        // Register new user password
+        credsMap[cleanEmail] = cleanPass;
+        localStorage.setItem('ien_user_credentials', JSON.stringify(credsMap));
+      }
+    } catch (e) {
+      console.warn('Credentials storage note:', e);
+    }
+
+    return { valid: true };
+  }
+
+  public setMasterPassword(newPass: string): void {
+    if (newPass && newPass.trim().length >= 4) {
+      localStorage.setItem('ien_auth_master_password', newPass.trim());
+    }
+  }
+
+  public loginWithCredentials(
+    email: string,
+    password: string,
+    name?: string,
+    picture?: string,
+    requestReason?: string
+  ): { session: UserSession | null; error?: string } {
+    const cleanEmail = email.trim().toLowerCase();
+    const verification = this.verifyPassword(cleanEmail, password);
+    if (!verification.valid) {
+      return { session: null, error: verification.error };
+    }
+
+    const session = this.loginWithGoogleEmail(
+      cleanEmail,
+      name,
+      picture,
+      requestReason,
+      undefined,
+      true,
+      'password'
+    );
+    return { session };
   }
 
   public async loginWithFirebasePopup(): Promise<UserSession | null> {

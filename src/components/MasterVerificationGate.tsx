@@ -12,7 +12,11 @@ import {
   AlertCircle,
   Shield,
   LogIn,
-  UserCheck
+  KeyRound,
+  Eye,
+  EyeOff,
+  UserCheck,
+  Sparkles
 } from 'lucide-react';
 import { UserSession } from '../types';
 import { authService, maskEmail, MASTER_GOOGLE_EMAIL } from '../utils/authService';
@@ -27,6 +31,8 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
   onUserAuthenticated,
 }) => {
   const [inputEmail, setInputEmail] = useState('');
+  const [inputPassword, setInputPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [inputName, setInputName] = useState('');
   const [requestReason, setRequestReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,32 +52,49 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
     }
   }, [currentUser, onUserAuthenticated]);
 
-  // Standard Email Login & Verification Request
-  const handleEmailLoginSubmit = (e: React.FormEvent) => {
+  // Handle Secure Email & Password Login / Access Request
+  const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setInfoMsg('');
+
     const cleanEmail = inputEmail.trim().toLowerCase();
+    const cleanPassword = inputPassword.trim();
 
     if (!cleanEmail || !cleanEmail.includes('@') || cleanEmail.length < 5) {
-      setErrorMsg('Pakilagay po ang inyong tamang email address.');
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+
+    if (!cleanPassword) {
+      setErrorMsg('Please enter your account password.');
       return;
     }
 
     setIsSubmitting(true);
     setTimeout(() => {
-      const session = authService.loginWithGoogleEmail(
+      const { session, error } = authService.loginWithCredentials(
         cleanEmail,
+        cleanPassword,
         inputName.trim() || undefined,
         undefined,
         requestReason.trim() || 'Portal database access request'
       );
-      onUserAuthenticated(session);
+
+      if (error) {
+        setErrorMsg(error);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (session) {
+        onUserAuthenticated(session);
+      }
       setIsSubmitting(false);
-    }, 300);
+    }, 350);
   };
 
-  // Google Sign-in popup with iframe fallback
+  // Google Sign-In authentication fallback
   const handleFirebaseGoogleLogin = async () => {
     setIsSubmitting(true);
     setErrorMsg('');
@@ -83,8 +106,8 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
         return;
       }
     } catch (e: any) {
-      console.warn('Google popup note (iframe constraint):', e);
-      setInfoMsg('Pakilagay ang inyong email address sa itaas at i-click ang "Log In / Request Verification".');
+      console.warn('Google popup authentication note:', e);
+      setInfoMsg('Please enter your email and password above, then click "Sign In / Request Access".');
       const emailInputElem = document.getElementById('login-email-input');
       if (emailInputElem) {
         emailInputElem.focus();
@@ -106,9 +129,9 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
       };
       authService.setCurrentUser(upgraded);
       onUserAuthenticated(upgraded);
-      setNotificationMsg('Approved na po ang inyong verification ng Human Resource! Nabuksan na ang database.');
+      setNotificationMsg('Your account has been approved by Human Resources! Database unlocked.');
     } else {
-      setNotificationMsg('Kasalukuyan pang naghihintay ng pag-apruba mula sa Human Resource Administrator.');
+      setNotificationMsg('Currently awaiting review and approval from the Human Resource Administrator.');
       setTimeout(() => setNotificationMsg(''), 4000);
     }
   };
@@ -116,7 +139,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
   const handleSendUpdatedReason = () => {
     if (!currentUser || !requestReason) return;
     authService.submitAccessRequest(currentUser.email, currentUser.name, requestReason, currentUser.picture);
-    setNotificationMsg('Naipadala na ang inyong access reason sa Human Resource Administrator!');
+    setNotificationMsg('Your access purpose has been forwarded to the Human Resource Administrator!');
     setTimeout(() => setNotificationMsg(''), 3000);
   };
 
@@ -144,7 +167,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
               </div>
               <div>
                 <h2 className="text-base font-extrabold text-white">
-                  {isRejected ? 'Access Request Declined' : 'Naghihintay ng Pag-apruba'}
+                  {isRejected ? 'Access Request Declined' : 'Awaiting HR Verification'}
                 </h2>
                 <p className="text-xs text-slate-400">
                   IEN REALTY INC. Corporate Vault Security
@@ -155,7 +178,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
             <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
               isRejected ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
             }`}>
-              {isRejected ? 'Declined' : 'Pending HR Verification'}
+              {isRejected ? 'Declined' : 'Pending Approval'}
             </span>
           </div>
 
@@ -173,7 +196,11 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
                 <p className="text-sm font-bold text-white truncate">{currentUser.name || 'Portal User'}</p>
                 <p className="text-xs text-slate-400 truncate flex items-center gap-1">
                   <Mail className="w-3 h-3 text-sky-400 shrink-0" />
-                  <span className="font-mono">{currentUser.email}</span>
+                  <span className="font-mono">
+                    {authService.isMasterEmail(currentUser.email) 
+                      ? `${maskEmail(currentUser.email)} (Protected)` 
+                      : currentUser.email}
+                  </span>
                 </p>
               </div>
             </div>
@@ -183,39 +210,39 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
           <div className="bg-amber-950/40 border border-amber-500/30 rounded-2xl p-4 mb-5 text-xs space-y-2.5">
             <div className="flex items-center gap-2 text-amber-300 font-bold">
               <Clock className="w-4 h-4 shrink-0 text-amber-400 animate-spin" />
-              <span>Kailangan ng Human Resource Verification</span>
+              <span>Human Resource Verification Required</span>
             </div>
             <p className="text-slate-300 leading-relaxed">
-              Ang inyong access request ay matagumpay na naipadala sa <strong>Human Resource Administrator</strong>.
+              Your access request has been securely forwarded to the <strong>Human Resource Administrator</strong> for verification.
             </p>
             <div className="p-2.5 bg-slate-900/90 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
               <span className="font-medium text-slate-300">Approving Authority:</span>
               <span className="font-bold text-amber-400 font-mono">Human Resource (Protected)</span>
             </div>
             <p className="text-slate-400 text-[11px] leading-relaxed">
-              Tanging ang Human Resource lamang ang may kapangyarihang mag-apruba sa Gatekeeper dashboard. Sa oras na ma-verify ang inyong account, <strong>awtomatikong magbubukas</strong> ang database sa inyong screen.
+              Once the Human Resource Administrator approves your request in the Gatekeeper dashboard, the database will <strong>automatically unlock</strong> on your screen in real time.
             </p>
           </div>
 
           {/* Optional reason / department note */}
           <div className="mb-5">
             <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Dahilan / Departamento para sa Database Access:
+              Access Purpose / Department Note:
             </label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={requestReason}
                 onChange={(e) => setRequestReason(e.target.value)}
-                placeholder="Hal. Internal Audit / BIR 2303 Review"
+                placeholder="e.g. Legal Compliance Review / BIR 2303 Audit"
                 className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-400"
               />
               <button
                 type="button"
                 onClick={handleSendUpdatedReason}
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-xl border border-slate-700 transition"
+                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-xl border border-slate-700 transition text-slate-200"
               >
-                Ipadala
+                Send
               </button>
             </div>
           </div>
@@ -235,7 +262,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
               className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />
-              <span>Suriin kung Na-approve na ng HR</span>
+              <span>Check Verification Status</span>
             </button>
 
             <button
@@ -247,7 +274,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
               className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center justify-center gap-2"
             >
               <LogOut className="w-4 h-4 text-slate-400" />
-              <span>Mag-log in ng ibang Email Address</span>
+              <span>Sign In with Another Email</span>
             </button>
           </div>
 
@@ -256,7 +283,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
     );
   }
 
-  // 2. Primary Log In Screen
+  // 2. Primary Log In & Access Gate
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 text-slate-100 relative overflow-hidden">
       
@@ -290,7 +317,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
             <span>Authorized HR Access Protocol</span>
           </div>
           <p className="text-slate-300 text-[11px] leading-relaxed">
-            Ang <strong>Human Resource</strong> lamang ang may direktang access sa master vault. Ang lahat ng ibang staff o user email ay dadaan sa <strong>Gatekeeper Verification</strong> at kailangang aprubahan ng HR.
+            Only the <strong>Human Resource Administrator</strong> has direct master access. All other staff and client requests must be approved via the <strong>HR Gatekeeper</strong>.
           </p>
         </div>
 
@@ -310,9 +337,9 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
           </div>
         )}
 
-        {/* Standard Direct Email Log In */}
+        {/* Primary Email & Password Form */}
         <div className="space-y-4">
-          <form onSubmit={handleEmailLoginSubmit} className="space-y-3.5">
+          <form onSubmit={handleLoginSubmit} className="space-y-3.5">
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
                 Email Address <span className="text-rose-400">*</span>
@@ -325,7 +352,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
                   required
                   value={inputEmail}
                   onChange={(e) => setInputEmail(e.target.value)}
-                  placeholder="Hal. humanresource.iengoc@gmail.com o staff@company.com"
+                  placeholder="e.g. employee@company.com or hr@company.com"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
                 />
               </div>
@@ -333,26 +360,50 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Pangalan / Departamento (Optional)
+                Password <span className="text-rose-400">*</span>
+              </label>
+              <div className="relative">
+                <KeyRound className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={inputPassword}
+                  onChange={(e) => setInputPassword(e.target.value)}
+                  placeholder="Enter your password (e.g. ien2026 for HR)"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-10 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                Full Name / Department (Optional)
               </label>
               <input
                 type="text"
                 value={inputName}
                 onChange={(e) => setInputName(e.target.value)}
-                placeholder="Hal. Legal / Internal Compliance Auditor"
+                placeholder="e.g. Legal Compliance / Auditor"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Dahilan para sa Database Access (Optional)
+                Reason for Access (Optional for new requests)
               </label>
               <input
                 type="text"
                 value={requestReason}
                 onChange={(e) => setRequestReason(e.target.value)}
-                placeholder="Hal. Document & Contract Verification"
+                placeholder="e.g. Document Verification & BIR Records"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400"
               />
             </div>
@@ -360,18 +411,18 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-400 hover:to-sky-500 active:from-sky-600 text-white font-extrabold text-xs sm:text-sm rounded-xl transition shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-400 hover:to-sky-500 active:from-sky-600 text-white font-extrabold text-xs sm:text-sm rounded-xl transition shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 mt-2"
             >
               <LogIn className="w-4 h-4" />
-              <span>Log In / Request Verification</span>
+              <span>Sign In / Request Database Access</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
 
           <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 text-[11px]">
               <UserCheck className="w-3.5 h-3.5 text-sky-400" />
-              <span>Human Resource Verified</span>
+              <span>Human Resource Protected</span>
             </span>
 
             <button
@@ -385,7 +436,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
               </svg>
-              <span>Google Sign-in</span>
+              <span>Google Sign-In</span>
             </button>
           </div>
         </div>

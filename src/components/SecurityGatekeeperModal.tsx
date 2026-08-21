@@ -118,7 +118,7 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Master Security Authority: <span className="text-sky-300 font-mono font-medium">{maskEmail(MASTER_GOOGLE_EMAIL)} (Hidden)</span>
+                Master Security Authority: <span className="text-sky-300 font-mono font-medium">Master Administrator (Protected &amp; Confidential)</span>
               </p>
             </div>
           </div>
@@ -261,7 +261,7 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
                   <ShieldCheck className="w-10 h-10 text-emerald-400 mx-auto mb-2 opacity-80" />
                   <p className="text-sm font-bold text-slate-200">No Pending Access Requests</p>
                   <p className="text-xs mt-1 text-slate-400">
-                    Lahat ng papasok na request ay makikita mo rito at ikaw ang mag-aapruba kung makakapasok sila sa database.
+                    All incoming access requests will appear here for the Human Resource Administrator to review and grant database access.
                   </p>
                 </div>
               )}

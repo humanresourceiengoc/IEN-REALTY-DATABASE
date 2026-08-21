@@ -2,18 +2,13 @@ import React from 'react';
 import { 
   ShieldCheck, 
   CheckCircle2, 
-  Lock, 
   Mail, 
-  KeyRound, 
-  UserCheck, 
   X, 
   Sparkles, 
-  ExternalLink, 
-  LogOut,
-  AlertCircle
+  LogOut
 } from 'lucide-react';
 import { UserSession } from '../types';
-import { MASTER_GOOGLE_EMAIL, MASTER_GOOGLE_NAME, maskEmail } from '../utils/authService';
+import { MASTER_GOOGLE_EMAIL, maskEmail } from '../utils/authService';
 
 interface AccountVerificationModalProps {
   isOpen: boolean;
@@ -49,7 +44,7 @@ export const AccountVerificationModal: React.FC<AccountVerificationModalProps> =
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-extrabold text-white">
-                  Google Account Verification Inspector
+                  Account Verification & Security Inspector
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                   <CheckCircle2 className="w-2.5 h-2.5" />
@@ -57,7 +52,7 @@ export const AccountVerificationModal: React.FC<AccountVerificationModalProps> =
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Paano na-veverify kung ang account mo talaga ang nag-sign in
+                Identity and access control audit details
               </p>
             </div>
           </div>
@@ -78,7 +73,7 @@ export const AccountVerificationModal: React.FC<AccountVerificationModalProps> =
           <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                Kasalukuyang Naka-Sign In na Account
+                Currently Authenticated Session
               </span>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
                 isMaster 
@@ -104,21 +99,21 @@ export const AccountVerificationModal: React.FC<AccountVerificationModalProps> =
                 <p className="text-sm font-bold text-white truncate">{currentUser.name}</p>
                 <p className="text-xs text-sky-300 font-mono truncate flex items-center gap-1">
                   <Mail className="w-3 h-3 shrink-0 text-sky-400" />
-                  <span>{isMaster ? `${maskEmail(currentUser.email)} (Master Email Protected)` : currentUser.email}</span>
+                  <span>{isMaster ? 'Master Administrator (Protected & Confidential)' : currentUser.email}</span>
                 </p>
                 <p className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" />
-                  <span>Google Email Verified: TRUE (Provider: google.com)</span>
+                  <span>Authentication Status: Active & Verified</span>
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Verification Protocol Explanation in Filipino & English */}
+          {/* Verification Protocol Explanation in English */}
           <div className="space-y-2.5">
             <h4 className="font-bold text-slate-200 text-xs uppercase tracking-wider flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>3-Step Security & Identity Verification Protocol:</span>
+              <span>3-Step Security & Access Control Protocol:</span>
             </h4>
 
             <div className="space-y-2">
@@ -127,9 +122,9 @@ export const AccountVerificationModal: React.FC<AccountVerificationModalProps> =
                   1
                 </span>
                 <div>
-                  <p className="font-bold text-white text-xs">Official Google OAuth 2.0 Authentication</p>
+                  <p className="font-bold text-white text-xs">Direct Credentials & Human Resource Verification</p>
                   <p className="text-[11px] text-slate-400 leading-relaxed mt-0.5">
-                    Kapag pumindot ka ng <em>Sign in with Google</em>, nagbubukas ang secure popup ng Google. Tanging ang taong may hawak ng password, 2-factor authentication code, o biometrics ng Google account ang makakapag-sign in.
+                    Authorized users log in with their email and secure password. Only pre-approved staff and authorized accounts gain immediate access.
                   </p>
                 </div>
               </div>
@@ -139,9 +134,9 @@ export const AccountVerificationModal: React.FC<AccountVerificationModalProps> =
                   2
                 </span>
                 <div>
-                  <p className="font-bold text-white text-xs">Cryptographic Token & Email Matching</p>
+                  <p className="font-bold text-white text-xs">Master Authority & Identity Masking</p>
                   <p className="text-[11px] text-slate-400 leading-relaxed mt-0.5">
-                    Kinukumpirma ng Firebase Auth kung ang email ay tumutugma sa master administrator: <code className="text-amber-300 bg-slate-900 px-1 py-0.5 rounded font-mono font-bold">{maskEmail(MASTER_GOOGLE_EMAIL)} (Protected)</code>.
+                    The Human Resource master email is protected and hidden across all application interfaces: <code className="text-amber-300 bg-slate-900 px-1 py-0.5 rounded font-mono font-bold">Master Administrator (Protected &amp; Confidential)</code>.
                   </p>
                 </div>
               </div>
@@ -151,9 +146,9 @@ export const AccountVerificationModal: React.FC<AccountVerificationModalProps> =
                   3
                 </span>
                 <div>
-                  <p className="font-bold text-white text-xs">Automatic Lockout para sa Ibang Google Accounts</p>
+                  <p className="font-bold text-white text-xs">Real-Time Gatekeeper Access Approval</p>
                   <p className="text-[11px] text-slate-400 leading-relaxed mt-0.5">
-                    Kung may ibang Google account na mag-sign in (halimbawa staff o third-party), <strong>awtomatikong naka-lock</strong> ang buong portal at walang makikitang files hangga't hindi mo ina-approve sa Security Gatekeeper.
+                    If unapproved staff or guest accounts sign in, the database remains strictly locked until the Human Resource Administrator reviews and approves the request in the Gatekeeper modal.
                   </p>
                 </div>
               </div>

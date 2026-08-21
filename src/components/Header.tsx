@@ -413,7 +413,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <p className="text-xs font-bold text-white">IEN Realty Inc. Corporate Database</p>
                     <p className="text-[11px] text-sky-300 font-mono flex items-center gap-1 mt-0.5">
                       <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                      <span>{maskEmail(currentUser?.email || MASTER_GOOGLE_EMAIL)} (Protected)</span>
+                      <span>{currentUser?.isMaster ? 'Master Administrator (Protected & Confidential)' : currentUser?.email}</span>
                     </p>
                   </div>
 
