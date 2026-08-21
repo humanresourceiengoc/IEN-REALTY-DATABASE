@@ -16,6 +16,11 @@ service cloud.firestore {
       allow read, write: if isValidId(documentId);
     }
 
+    // Custom Folders Collection
+    match /custom_folders/{folderId} {
+      allow read, write: if isValidId(folderId);
+    }
+
     // Access Requests Collection
     match /access_requests/{requestId} {
       allow read, write: if isValidId(requestId);
@@ -24,6 +29,11 @@ service cloud.firestore {
     // Settings Collection
     match /settings/{settingId} {
       allow read, write: if isValidId(settingId);
+    }
+
+    // General match for any subcollections/probes
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }

@@ -144,14 +144,60 @@ class StorageService {
           tx.oncomplete = () => res();
           tx.onerror = () => rej(tx.error);
         });
+      } else {
+        // Ensure A.B Soterio is in local DB if not present
+        const hasSoterio = localClients.some((c) => c.cifNo === '2021-0027' || c.clientName.includes('Soterio'));
+        if (!hasSoterio) {
+          const soterio = INITIAL_CLIENTS.find((c) => c.cifNo === '2021-0027');
+          if (soterio) {
+            await this.saveClientLocal(soterio);
+          }
+        }
       }
 
-      // Activate real-time Firestore listeners
+      // Activate real-time Firestore listeners & ensure cloud sync
       this.setupFirestoreRealtimeSync();
+      // Proactively ensure cloud has all clients (including A.B Soterio)
+      this.ensureInitialCloudSync().catch((e) => console.warn('Cloud sync init note:', e));
     } catch (e) {
       console.warn('Using memory fallback for data store:', e);
       this.useMemory = true;
       this.setupFirestoreRealtimeSync();
+      this.ensureInitialCloudSync().catch((err) => console.warn('Cloud sync memory init note:', err));
+    }
+  }
+
+  // Ensure all initial clients and documents are uploaded to Firestore
+  private async ensureInitialCloudSync(): Promise<void> {
+    try {
+      this.updateSyncState({ status: 'syncing' });
+      const snap = await getDocs(collection(db, 'clients'));
+      const cloudClientIds = new Set(snap.docs.map((d) => d.id));
+
+      for (const client of INITIAL_CLIENTS) {
+        if (!cloudClientIds.has(client.id)) {
+          await setDoc(doc(db, 'clients', client.id), cleanForFirestore(client));
+        }
+      }
+
+      const docSnap = await getDocs(collection(db, 'documents'));
+      const cloudDocIds = new Set(docSnap.docs.map((d) => d.id));
+
+      for (const docItem of INITIAL_DOCUMENTS) {
+        if (!cloudDocIds.has(docItem.id)) {
+          await setDoc(doc(db, 'documents', docItem.id), cleanForFirestore(docItem));
+        }
+      }
+
+      this.updateSyncState({
+        status: 'synced',
+        lastSyncedAt: new Date().toISOString(),
+        clientsCount: Math.max(snap.size, INITIAL_CLIENTS.length),
+        documentsCount: Math.max(docSnap.size, INITIAL_DOCUMENTS.length),
+      });
+      this.notifyDataChange({ type: 'clients' });
+    } catch (err) {
+      console.warn('Initial cloud sync verification notice:', err);
     }
   }
 
@@ -218,6 +264,11 @@ class StorageService {
             status: 'offline',
             errorMessage: error.message,
           });
+          // Auto retry connection after 5 seconds
+          setTimeout(() => {
+            this.isRealtimeActive = false;
+            this.setupFirestoreRealtimeSync();
+          }, 5000);
         }
       );
 
@@ -276,6 +327,10 @@ class StorageService {
     } catch (err) {
       console.warn('Real-time sync attachment notice:', err);
       this.updateSyncState({ status: 'offline' });
+      setTimeout(() => {
+        this.isRealtimeActive = false;
+        this.setupFirestoreRealtimeSync();
+      }, 5000);
     }
   }
 
