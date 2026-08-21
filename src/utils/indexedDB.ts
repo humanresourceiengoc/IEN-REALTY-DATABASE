@@ -246,16 +246,30 @@ class StorageService {
           this.notifyDataChange({ type: 'clients' });
         },
         (error) => {
-          console.warn('Clients real-time sync note:', error.message);
-          this.updateSyncState({
-            status: 'offline',
-            errorMessage: error.message,
-          });
-          // Auto retry connection after 5 seconds
-          setTimeout(() => {
+          const isQuota = error.message?.toLowerCase().includes('quota') || (error as { code?: string }).code === 'resource-exhausted';
+          if (isQuota) {
+            console.info('Cloud Firestore daily free read quota reached. App is running seamlessly on local IndexedDB storage.');
+            this.updateSyncState({
+              status: 'offline',
+              errorMessage: 'Firestore daily free tier read quota reached. Local IndexedDB storage active.',
+            });
             this.isRealtimeActive = false;
-            this.setupFirestoreRealtimeSync();
-          }, 5000);
+            // Retry after 30 minutes instead of every 5 seconds
+            setTimeout(() => {
+              this.setupFirestoreRealtimeSync();
+            }, 1800000);
+          } else {
+            console.warn('Clients real-time sync note:', error.message);
+            this.updateSyncState({
+              status: 'offline',
+              errorMessage: error.message,
+            });
+            // Auto retry connection after 30 seconds
+            setTimeout(() => {
+              this.isRealtimeActive = false;
+              this.setupFirestoreRealtimeSync();
+            }, 30000);
+          }
         }
       );
 
@@ -355,7 +369,12 @@ class StorageService {
           this.notifyDataChange({ type: 'documents' });
         },
         (error) => {
-          console.warn('Documents real-time sync note:', error.message);
+          const isQuota = error.message?.toLowerCase().includes('quota') || (error as { code?: string }).code === 'resource-exhausted';
+          if (isQuota) {
+            console.info('Firestore documents sync: daily free read quota reached. Local IndexedDB cache is fully serving data.');
+          } else {
+            console.warn('Documents real-time sync note:', error.message);
+          }
         }
       );
 

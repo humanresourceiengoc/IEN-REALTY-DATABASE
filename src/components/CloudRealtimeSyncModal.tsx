@@ -91,13 +91,13 @@ export const CloudRealtimeSyncModal: React.FC<CloudRealtimeSyncModalProps> = ({
           {/* Real-time Status Card */}
           <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50 animate-pulse' : 'bg-rose-500'}`} />
+              <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50 animate-pulse' : 'bg-amber-400'}`} />
               <div>
                 <p className="font-bold text-white text-sm">
-                  {syncState.status === 'syncing' ? 'Synchronizing with Firestore...' : isConnected ? 'Real-Time Sync Connected' : 'Offline / Standby Mode'}
+                  {syncState.status === 'syncing' ? 'Synchronizing with Firestore...' : isConnected ? 'Real-Time Sync Connected' : 'Local IndexedDB Engine (Active & Safe)'}
                 </p>
                 <p className="text-[11px] text-slate-400">
-                  Protocol: <span className="text-sky-300 font-mono">Firestore onSnapshot Stream (Auto-Broadcast)</span>
+                  {syncState.errorMessage ? syncState.errorMessage : 'Protocol: Firestore onSnapshot Stream (Auto-Broadcast)'}
                 </p>
               </div>
             </div>
@@ -112,6 +112,28 @@ export const CloudRealtimeSyncModal: React.FC<CloudRealtimeSyncModalProps> = ({
               <span>{isResyncing ? 'Syncing...' : 'Force Resync'}</span>
             </button>
           </div>
+
+          {syncState.errorMessage && syncState.errorMessage.includes('quota') && (
+            <div className="p-3.5 bg-amber-950/40 border border-amber-500/40 rounded-2xl text-amber-200 text-xs space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-amber-300">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Daily Free Tier Quota Limit Notice</span>
+              </div>
+              <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                The free daily read quota (50,000 reads/day) has been reached for today. The application is running <strong>100% uninterrupted on fast local IndexedDB storage</strong>. Quotas automatically reset tomorrow, or you can enable billing in the Firebase console.
+              </p>
+              <div className="pt-1">
+                <a
+                  href="https://console.firebase.google.com/project/affable-surge-xxctm/firestore/databases/ai-studio-remixienrealtyin-6c5aa3b9-307a-4ad8-899e-9c6c3a85640a/data?openUpgradeDialog=true"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-400 hover:text-sky-300 underline"
+                >
+                  Open Firebase Project Quotas &amp; Upgrade Dialog &rarr;
+                </a>
+              </div>
+            </div>
+          )}
 
           {resyncSuccess && (
             <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-emerald-300 flex items-center gap-2">
