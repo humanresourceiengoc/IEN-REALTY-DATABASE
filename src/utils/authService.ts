@@ -261,15 +261,6 @@ class AuthService {
     return masterSession;
   }
 
-  public loginWithMasterPass(passcode: string): UserSession | null {
-    const clean = passcode.trim().toLowerCase();
-    // Allow master passcodes without revealing master email
-    if (clean === 'ien2026' || clean === 'master' || clean === 'admin' || clean === 'ienrealty' || clean === 'ien') {
-      return this.loginWithMasterAccount();
-    }
-    return null;
-  }
-
   public async loginWithFirebasePopup(): Promise<UserSession | null> {
     try {
       const result = await signInWithPopup(auth, googleAuthProvider);

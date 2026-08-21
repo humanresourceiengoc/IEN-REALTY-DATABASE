@@ -339,25 +339,27 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">Add Client</span>
             </button>
 
-            {/* Gatekeeper / User Access Verification Center */}
-            <button
-              id="header-security-gatekeeper-btn"
-              onClick={onOpenSecurityModal}
-              className={`relative px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shrink-0 ${
-                pendingRequestsCount > 0
-                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20 animate-pulse'
-                  : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/30'
-              }`}
-              title="Gatekeeper: Approve / Verify Users Accessing Database"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden md:inline">Gatekeeper</span>
-              {pendingRequestsCount > 0 && (
-                <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-600 text-[9px] font-extrabold text-white">
-                  {pendingRequestsCount}
-                </span>
-              )}
-            </button>
+            {/* Gatekeeper / User Access Verification Center (Human Resource Only) */}
+            {(currentUser?.isMaster || currentUser?.role === 'master_admin') && (
+              <button
+                id="header-security-gatekeeper-btn"
+                onClick={onOpenSecurityModal}
+                className={`relative px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shrink-0 ${
+                  pendingRequestsCount > 0
+                    ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20 animate-pulse'
+                    : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/30'
+                }`}
+                title="Gatekeeper: Human Resource Approval for User Access"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden md:inline">HR Gatekeeper</span>
+                {pendingRequestsCount > 0 && (
+                  <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-600 text-[9px] font-extrabold text-white">
+                    {pendingRequestsCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* Notification & Deadline Alert Bell */}
             <button
