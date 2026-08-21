@@ -267,13 +267,58 @@ class StorageService {
             remoteDocs.push(docSnap.data() as DocumentItem);
           });
 
-          this.memoryDocs = remoteDocs;
+          // Fetch current local documents from IndexedDB to preserve large attachments and multi-page scans
+          let localDocs: DocumentItem[] = [];
+          try {
+            const idb = await this.openDB();
+            localDocs = await new Promise((resolve) => {
+              const tx = idb.transaction(STORES.DOCUMENTS, 'readonly');
+              const store = tx.objectStore(STORES.DOCUMENTS);
+              const request = store.getAll();
+              request.onsuccess = () => resolve(request.result || []);
+              request.onerror = () => resolve([]);
+            });
+          } catch {
+            localDocs = [...this.memoryDocs];
+          }
+
+          const localDocMap = new Map<string, DocumentItem>(localDocs.map((d) => [d.id, d]));
+          const mergedDocs: DocumentItem[] = [];
+
+          for (const remote of remoteDocs) {
+            const local = localDocMap.get(remote.id);
+            if (local) {
+              // Merge: keep local rich pages/fileData if local has them
+              const merged: DocumentItem = {
+                ...remote,
+                fileData: (local.fileData && local.fileData.length > 50) ? local.fileData : (remote.fileData || local.fileData),
+                pages: (local.pages && local.pages.length >= (remote.pages?.length || 0) && local.pages.length > 0)
+                  ? local.pages
+                  : (remote.pages && remote.pages.length > 0 ? remote.pages : local.pages || []),
+                pageCount: Math.max(local.pages?.length || 0, remote.pages?.length || 0, remote.pageCount || 1, local.pageCount || 1),
+              };
+              mergedDocs.push(merged);
+              localDocMap.delete(remote.id);
+            } else {
+              mergedDocs.push(remote);
+            }
+          }
+
+          // Retain local documents that are recently created or pending cloud sync
+          for (const [_, unSyncedDoc] of localDocMap) {
+            if (unSyncedDoc && !unSyncedDoc.isDeleted) {
+              mergedDocs.push(unSyncedDoc);
+            }
+          }
+
+          this.memoryDocs = mergedDocs;
+
+          // Write back merged documents to IndexedDB
           try {
             const idb = await this.openDB();
             const tx = idb.transaction(STORES.DOCUMENTS, 'readwrite');
             const store = tx.objectStore(STORES.DOCUMENTS);
-            store.clear(); // Clear stale local cache to properly reflect deleted documents
-            for (const d of remoteDocs) {
+            for (const d of mergedDocs) {
               store.put(d);
             }
           } catch (e) {
@@ -283,7 +328,7 @@ class StorageService {
           this.updateSyncState({
             status: 'synced',
             lastSyncedAt: new Date().toISOString(),
-            documentsCount: remoteDocs.length,
+            documentsCount: mergedDocs.length,
           });
 
           this.notifyDataChange({ type: 'documents' });
@@ -564,9 +609,25 @@ class StorageService {
   public async saveDocument(docItem: DocumentItem): Promise<void> {
     await this.saveDocumentLocal(docItem);
 
-    // Save directly to Firestore Cloud
+    // Save directly to Firestore Cloud with payload size protection
     try {
-      await setDoc(doc(db, 'documents', docItem.id), cleanForFirestore(docItem));
+      const cleaned = cleanForFirestore(docItem);
+      const payloadStr = JSON.stringify(cleaned);
+
+      if (payloadStr.length > 750000) {
+        // Multi-page scans or large PDFs exceed Firestore's 1MB single-document limit
+        // Store cloud-safe record with metadata & first page thumbnail preview
+        const cloudSafeDoc: DocumentItem = {
+          ...cleaned,
+          fileData: docItem.fileData && docItem.fileData.length > 300000 ? '' : docItem.fileData,
+          pages: docItem.pages && docItem.pages.length > 0 ? [docItem.pages[0]] : [],
+          pageCount: docItem.pages?.length || docItem.pageCount || 1,
+        };
+        await setDoc(doc(db, 'documents', docItem.id), cleanForFirestore(cloudSafeDoc));
+      } else {
+        await setDoc(doc(db, 'documents', docItem.id), cleaned);
+      }
+
       this.updateSyncState({
         status: 'synced',
         lastSyncedAt: new Date().toISOString(),

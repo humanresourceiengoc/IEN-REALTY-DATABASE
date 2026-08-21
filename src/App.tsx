@@ -24,7 +24,7 @@ import {
   FolderOpen, 
   Users
 } from 'lucide-react';
-import { ClientProfile, DocumentItem, FolderDefinition, DeadlineAlert, UserSession } from './types';
+import { ClientProfile, DocumentItem, FolderDefinition, DeadlineAlert, UserSession, TransmittalInfo } from './types';
 import { DEFAULT_FOLDERS } from './data/defaultFolders';
 import { dbService } from './utils/indexedDB';
 import { generateAllAlerts } from './utils/alertEngine';
@@ -352,24 +352,35 @@ export default function App() {
   };
 
   // Save / Update Transmittal Status & History
-  const handleSaveTransmittal = async (updatedDoc: DocumentItem) => {
+  const handleSaveTransmittal = async (docId: string, updatedTransmittal: TransmittalInfo) => {
+    const targetDoc = documents.find((d) => d.id === docId) || (transmittalDoc?.id === docId ? transmittalDoc : null);
+    if (!targetDoc) return;
+
+    const updatedDoc: DocumentItem = {
+      ...targetDoc,
+      transmittal: updatedTransmittal,
+    };
+
     await dbService.saveDocument(updatedDoc);
-    setDocuments((prev) => prev.map((d) => (d.id === updatedDoc.id ? updatedDoc : d)));
+    setDocuments((prev) => prev.map((d) => (d.id === docId ? updatedDoc : d)));
     
     // Also sync previewDoc if currently open
-    if (previewDoc && previewDoc.id === updatedDoc.id) {
+    if (previewDoc && previewDoc.id === docId) {
       setPreviewDoc(updatedDoc);
     }
+    if (transmittalDoc && transmittalDoc.id === docId) {
+      setTransmittalDoc(updatedDoc);
+    }
 
-    const statusLabel = updatedDoc.transmittal?.status === 'returned'
+    const statusLabel = updatedTransmittal.status === 'returned'
       ? 'Returned to Custody'
-      : updatedDoc.transmittal?.status === 'transmitted'
+      : updatedTransmittal.status === 'transmitted'
       ? 'Transmitted & Dispatched'
-      : updatedDoc.transmittal?.status === 'acknowledged'
+      : updatedTransmittal.status === 'acknowledged'
       ? 'Acknowledged by Recipient'
       : 'In Custody';
 
-    showToast(`Updated transmittal status to "${statusLabel}" for ${updatedDoc.fileName}`, 'success');
+    showToast(`Updated transmittal status to "${statusLabel}" for ${targetDoc.fileName}`, 'success');
   };
 
   // Select Client & Doc from Alert Center
@@ -655,8 +666,9 @@ export default function App() {
             setTransmittalDoc(null);
           }}
           document={transmittalDoc}
+          client={clients.find((c) => c.id === transmittalDoc.clientId) || selectedClient || null}
+          appLogo={appLogo}
           onSaveTransmittal={handleSaveTransmittal}
-          clientName={selectedClient?.clientName}
         />
       )}
 

@@ -27,7 +27,8 @@ import {
   Plus,
   Stamp,
   Copy,
-  FileBadge
+  FileBadge,
+  Loader2
 } from 'lucide-react';
 import { DocumentItem, FolderDefinition, DocumentCopyType } from '../types';
 import { addMonthsToDate, addYearsToDate, getTodayDateString } from '../utils/dateUtils';
@@ -76,6 +77,8 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
   const [notes, setNotes] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
   
   // Live preview interactive controls
   const [previewZoom, setPreviewZoom] = useState(100);
@@ -118,94 +121,124 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
     setPreviewRotation(0);
     setIsFullscreenPreview(false);
     setErrorMsg('');
+    setIsProcessing(false);
+    setProcessingStatus('');
   }, [editingDoc, defaultFolderId, folders, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleFileChange = (fileList: FileList | File[]) => {
+  const readFileAsDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const extractPagesFromFile = async (file: File): Promise<string[]> => {
+    const base64 = await readFileAsDataUrl(file);
+    const isPdfFile = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf') || base64.startsWith('data:application/pdf');
+    
+    if (isPdfFile) {
+      try {
+        const extracted = await renderPdfToPageImages(base64, 1.8);
+        if (extracted && extracted.length > 0) {
+          return extracted.map((p) => p.dataUrl);
+        }
+      } catch (pdfErr) {
+        console.warn('PDF extraction fallback to raw data:', pdfErr);
+      }
+    }
+    return [base64];
+  };
+
+  const handleFileChange = async (fileList: FileList | File[]) => {
     const files = Array.from(fileList);
     if (files.length === 0) return;
 
-    if (files.length === 1) {
-      const file = files[0];
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result as string;
-        setFileData(base64);
+    setIsProcessing(true);
+    setErrorMsg('');
+
+    try {
+      if (files.length === 1) {
+        const file = files[0];
+        setProcessingStatus(`Processing ${file.name}...`);
+        const extractedPages = await extractPagesFromFile(file);
+        
+        setFileData(extractedPages[0] || '');
+        setPages(extractedPages);
+        setActivePageIndex(0);
         setOriginalFileName(file.name);
+        
         if (!fileName || fileName.trim() === '') {
           const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
           setFileName(nameWithoutExt);
         }
         setFileType(file.type || 'application/pdf');
         setFileSize(file.size);
-        setErrorMsg('');
+      } else {
+        // Multi-file upload (batch of pages/scans/PDFs)
+        setProcessingStatus(`Processing ${files.length} documents & scan pages...`);
+        const allExtractedPages: string[] = [];
+        let totalSize = 0;
 
-        // If file is a PDF, render all pages to canvas high-res data URLs
-        const isPdfFile = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf') || base64.startsWith('data:application/pdf');
-        if (isPdfFile) {
-          try {
-            const extracted = await renderPdfToPageImages(base64, 2.0);
-            if (extracted && extracted.length > 0) {
-              const pageUrls = extracted.map((p) => p.dataUrl);
-              setPages(pageUrls);
-              setActivePageIndex(0);
-              return;
-            }
-          } catch (pdfErr) {
-            console.warn('Direct PDF extraction fallback:', pdfErr);
-          }
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          setProcessingStatus(`Extracting page(s) from file ${i + 1} of ${files.length} (${file.name})...`);
+          totalSize += file.size;
+          const extracted = await extractPagesFromFile(file);
+          allExtractedPages.push(...extracted);
         }
 
-        // Fallback for image / other files
-        setPages((prev) => (prev.length === 0 ? [base64] : [base64, ...prev.slice(1)]));
-      };
-      reader.readAsDataURL(file);
-    } else {
-      // Multiple files uploaded as multi-page document
-      const loadedPages: string[] = [];
-      let totalSize = 0;
-      let loadedCount = 0;
-
-      files.forEach((file, idx) => {
-        totalSize += file.size;
-        const reader = new FileReader();
-        reader.onload = () => {
-          loadedPages[idx] = reader.result as string;
-          loadedCount++;
-          if (loadedCount === files.length) {
-            setPages(loadedPages.filter(Boolean));
-            setFileData(loadedPages[0]);
-            setOriginalFileName(`${files.length} Pages Document (${files[0].name})`);
-            if (!fileName || fileName.trim() === '') {
-              const nameWithoutExt = files[0].name.replace(/\.[^/.]+$/, '');
-              setFileName(`${nameWithoutExt} (${files.length} Pages)`);
-            }
-            setFileType(files[0].type || 'application/pdf');
-            setFileSize(totalSize);
-            setActivePageIndex(0);
-            setErrorMsg('');
+        if (allExtractedPages.length > 0) {
+          setPages(allExtractedPages);
+          setFileData(allExtractedPages[0]);
+          setActivePageIndex(0);
+          setOriginalFileName(`${allExtractedPages.length} Pages Combined Scan (${files[0].name})`);
+          
+          if (!fileName || fileName.trim() === '') {
+            const nameWithoutExt = files[0].name.replace(/\.[^/.]+$/, '');
+            setFileName(`${nameWithoutExt} (${allExtractedPages.length} Pages)`);
           }
-        };
-        reader.readAsDataURL(file);
-      });
+          setFileType('application/pdf');
+          setFileSize(totalSize);
+        }
+      }
+    } catch (err: any) {
+      console.error('File extraction error:', err);
+      setErrorMsg(`Failed to process files: ${err.message || 'Unknown file format error'}`);
+    } finally {
+      setIsProcessing(false);
+      setProcessingStatus('');
     }
   };
 
-  const handleAddAdditionalPage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = reader.result as string;
+  const handleAddAdditionalPage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files: File[] = Array.from(e.target.files);
+      setIsProcessing(true);
+      setProcessingStatus('Adding additional document page(s)...');
+      try {
+        const newPages: string[] = [];
+        let addedSize = 0;
+        for (const file of files) {
+          addedSize += file.size;
+          const extracted = await extractPagesFromFile(file);
+          newPages.push(...extracted);
+        }
         setPages((prev) => {
-          const updated = [...prev, base64];
+          const updated = [...prev, ...newPages];
           setActivePageIndex(updated.length - 1);
           return updated;
         });
-        setFileSize((prev) => prev + file.size);
-      };
-      reader.readAsDataURL(file);
+        setFileSize((prev) => prev + addedSize);
+      } catch (err) {
+        console.error('Error adding page:', err);
+      } finally {
+        setIsProcessing(false);
+        setProcessingStatus('');
+      }
     }
   };
 
@@ -518,7 +551,13 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
 
-                {pages.length > 0 ? (
+                {isProcessing ? (
+                  <div className="py-2.5 flex flex-col items-center justify-center gap-1.5 text-sky-700">
+                    <Loader2 className="w-6 h-6 animate-spin text-sky-600" />
+                    <p className="font-bold text-xs">{processingStatus || 'Extracting & preparing pages...'}</p>
+                    <p className="text-[10px] text-slate-500">Please wait while multi-page scans are processed</p>
+                  </div>
+                ) : pages.length > 0 ? (
                   <div className="flex items-center justify-between gap-2 text-left">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-9 h-9 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0 font-extrabold text-xs">

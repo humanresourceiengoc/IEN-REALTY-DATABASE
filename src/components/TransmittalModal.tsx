@@ -109,7 +109,23 @@ export const TransmittalModal: React.FC<TransmittalModalProps> = ({
     }
   }, [doc, isOpen]);
 
-  if (!isOpen || !doc || !client) return null;
+  if (!isOpen || !doc) return null;
+
+  const clientProfile: ClientProfile = client || {
+    id: doc.clientId || 'client_default',
+    clientName: 'IEN Client Entity',
+    cifNo: 'CIF-0000',
+    industry: 'Real Estate / Corporate',
+    contactPerson: 'Authorized Officer',
+    email: '',
+    phone: '',
+    address: 'Metro Manila, Philippines',
+    assignedOfficer: 'Compliance Officer',
+    riskRating: 'low',
+    status: 'active',
+    createdAt: '',
+    updatedAt: '',
+  };
 
   const handleStatusChange = (newStatus: TransmittalStatus) => {
     setStatus(newStatus);
@@ -196,7 +212,7 @@ export const TransmittalModal: React.FC<TransmittalModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-400 truncate mt-0.5">
-                Client: <span className="text-sky-300 font-semibold">{client.clientName}</span> &bull; {doc.fileName}
+                Client: <span className="text-sky-300 font-semibold">{clientProfile.clientName}</span> &bull; {doc.fileName}
               </p>
             </div>
           </div>
@@ -771,10 +787,10 @@ export const TransmittalModal: React.FC<TransmittalModalProps> = ({
                       FOR ACCOUNT / CLIENT NAME
                     </span>
                     <p className="font-extrabold text-slate-900 text-sm">
-                      {client.clientName}
+                      {clientProfile.clientName}
                     </p>
                     <p className="text-slate-600 mt-0.5">
-                      CIF No: <span className="font-mono font-bold text-slate-800">{client.cifNo}</span> &bull; TIN: {client.tin}
+                      CIF No: <span className="font-mono font-bold text-slate-800">{clientProfile.cifNo}</span> {clientProfile.tin ? `• TIN: ${clientProfile.tin}` : ''}
                     </p>
                   </div>
                 </div>
