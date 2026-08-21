@@ -23,7 +23,13 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { ClientProfile } from '../types';
-import { calculateDaysRemaining, formatDateDisplay, formatRemainingDaysText, getUrgencySeverity } from '../utils/dateUtils';
+import { 
+  calculateDaysRemaining, 
+  formatDateDisplay, 
+  formatRemainingDaysText, 
+  getUrgencySeverity,
+  getContractStatusDisplay
+} from '../utils/dateUtils';
 
 interface ClientProfileCardProps {
   client: ClientProfile;
@@ -48,7 +54,7 @@ export const ClientProfileCard: React.FC<ClientProfileCardProps> = ({
 
   const daysRemaining = calculateDaysRemaining(client.maturityDate);
   const urgency = getUrgencySeverity(daysRemaining);
-  const annualDaysRemaining = calculateDaysRemaining(client.annualSubDate);
+  const contractStatusInfo = getContractStatusDisplay(client.status, client.maturityDate);
 
   const handleSaveInlineName = () => {
     if (inlineName.trim()) {
@@ -106,11 +112,17 @@ export const ClientProfileCard: React.FC<ClientProfileCardProps> = ({
 
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                {client.codeName && (
+                  <span className="text-[11px] font-black uppercase tracking-wider text-amber-300 bg-amber-950/80 px-2.5 py-0.5 rounded-md border border-amber-600/60 shadow-xs">
+                    CODE: {client.codeName}
+                  </span>
+                )}
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-sky-300 bg-sky-950/80 px-2.5 py-0.5 rounded-md border border-sky-700/50">
                   CIF: {client.cifNo}
                 </span>
-                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md border ${getStatusBadgeStyle(client.status)}`}>
-                  {client.status}
+                <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-md border flex items-center gap-1.5 ${contractStatusInfo.badgeBg} ${contractStatusInfo.badgeText} ${contractStatusInfo.badgeBorder}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${contractStatusInfo.dotColor}`} />
+                  <span>{contractStatusInfo.label}</span>
                 </span>
 
                 {/* Business Registration Type Badge */}
@@ -241,7 +253,7 @@ export const ClientProfileCard: React.FC<ClientProfileCardProps> = ({
         <div className="mt-5 pt-4 border-t border-slate-800 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
           
           {/* Contract Date vs Maturity Date */}
-          <div className="md:col-span-4 flex items-center gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+          <div className="md:col-span-5 flex items-center gap-3 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
             <Calendar className="w-8 h-8 text-sky-400 shrink-0" />
             <div>
               <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
@@ -260,7 +272,7 @@ export const ClientProfileCard: React.FC<ClientProfileCardProps> = ({
           </div>
 
           {/* Maturity Countdown Badge & Progress */}
-          <div className="md:col-span-5 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+          <div className="md:col-span-7 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-sky-400" />
@@ -296,20 +308,6 @@ export const ClientProfileCard: React.FC<ClientProfileCardProps> = ({
                 style={{ width: `${urgency === 'expired' ? 100 : getProgressPercentage()}%` }}
               />
             </div>
-          </div>
-
-          {/* Annual Submission Tracker */}
-          <div className="md:col-span-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-            <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1">
-              <CalendarCheck className="w-3.5 h-3.5 text-sky-400" />
-              Annual Sub Due:
-            </p>
-            <p className="text-xs font-bold text-slate-200 mt-0.5">
-              {formatDateDisplay(client.annualSubDate)}
-            </p>
-            <p className="text-[10px] text-slate-400 truncate" title={client.annualSubNotes}>
-              {client.annualSubNotes || 'Annual BIR / LGU compliance'}
-            </p>
           </div>
         </div>
       </div>

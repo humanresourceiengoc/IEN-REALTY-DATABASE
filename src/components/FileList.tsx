@@ -389,12 +389,13 @@ export const FileList: React.FC<FileListProps> = ({
 
                     {/* Column 3: Transmittal & Custody Status Badge */}
                     <td className="py-3.5 px-4 whitespace-nowrap">
-                      <div 
+                      <button
+                        type="button"
                         onClick={() => onOpenTransmittal(doc)}
-                        className="cursor-pointer group/trans inline-block"
-                        title="Click to view transmittal slip, update status, or record document return"
+                        className="text-left group/trans block w-full focus:outline-none"
+                        title="Click to open transmittal tracking, log transfer, or view movement slip"
                       >
-                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${transConfig.badgeBg} ${transConfig.badgeText} ${transConfig.badgeBorder} group-hover/trans:scale-105 shadow-2xs`}>
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${transConfig.badgeBg} ${transConfig.badgeText} ${transConfig.badgeBorder} group-hover/trans:ring-2 group-hover/trans:ring-sky-500/20 shadow-2xs`}>
                           {transStatus === 'transmitted' ? (
                             <Send className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
                           ) : transStatus === 'returned' ? (
@@ -408,22 +409,60 @@ export const FileList: React.FC<FileListProps> = ({
                         </div>
 
                         {transmittal?.transmittedTo && transStatus === 'transmitted' && (
-                          <p className="text-[10px] text-amber-800 font-semibold truncate max-w-[170px] mt-0.5">
-                            To: {transmittal.transmittedTo}
-                          </p>
+                          <div className="mt-1 space-y-0.5">
+                            <p className="text-[10px] text-amber-900 font-bold truncate max-w-[190px]" title={transmittal.transmittedTo}>
+                              To: {transmittal.transmittedTo}
+                            </p>
+                            {transmittal.transmittedDate && (
+                              <p className="text-[9px] text-amber-700 font-medium">
+                                Date: {formatDateDisplay(transmittal.transmittedDate)}
+                              </p>
+                            )}
+                          </div>
                         )}
 
                         {transmittal?.returnedDate && transStatus === 'returned' && (
-                          <p className="text-[10px] text-emerald-800 font-semibold truncate max-w-[170px] mt-0.5">
-                            Back: {formatDateDisplay(transmittal.returnedDate)}
-                          </p>
+                          <div className="mt-1 space-y-0.5">
+                            <p className="text-[10px] text-emerald-900 font-bold truncate max-w-[190px]">
+                              Back: {formatDateDisplay(transmittal.returnedDate)}
+                            </p>
+                            {transmittal.transmittedTo && (
+                              <p className="text-[9px] text-emerald-700 truncate max-w-[190px]">
+                                From: {transmittal.transmittedTo}
+                              </p>
+                            )}
+                          </div>
                         )}
-                      </div>
+
+                        {transmittal?.receivedBy && transStatus === 'acknowledged' && (
+                          <div className="mt-1 space-y-0.5">
+                            <p className="text-[10px] text-sky-900 font-bold truncate max-w-[190px]">
+                              By: {transmittal.receivedBy}
+                            </p>
+                            {transmittal.transmittedDate && (
+                              <p className="text-[9px] text-sky-700 font-medium">
+                                Date: {formatDateDisplay(transmittal.transmittedDate)}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </button>
                     </td>
 
                     {/* Column 4: Expiration Date & Remaining Days Alert */}
                     <td className="py-3.5 px-4 whitespace-nowrap">
-                      {doc.expirationDate ? (
+                      {doc.isPermanent ? (
+                        <div className="space-y-0.5">
+                          <span className="inline-flex items-center gap-1 font-bold text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-300">
+                            PERMANENT FILE
+                          </span>
+                          {doc.startDate && (
+                            <p className="text-[10px] text-slate-500 font-medium">
+                              Start: {formatDateDisplay(doc.startDate)}
+                            </p>
+                          )}
+                        </div>
+                      ) : doc.expirationDate ? (
                         <div>
                           <div className="flex items-center gap-1.5">
                             <span className="font-semibold text-slate-800 text-xs">
@@ -441,6 +480,11 @@ export const FileList: React.FC<FileListProps> = ({
                               {formatRemainingDaysText(daysRemaining)}
                             </span>
                           </div>
+                          {doc.startDate && (
+                            <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                              Start: {formatDateDisplay(doc.startDate)}
+                            </p>
+                          )}
                           {urgency === 'expired' && (
                             <p className="text-[10px] font-bold text-rose-600 flex items-center gap-0.5 mt-0.5">
                               <AlertTriangle className="w-2.5 h-2.5" /> Renewal Overdue!
@@ -449,7 +493,7 @@ export const FileList: React.FC<FileListProps> = ({
                         </div>
                       ) : (
                         <span className="text-slate-400 text-[11px] italic">
-                          Permanent / No Expiration
+                          No Expiration Set
                         </span>
                       )}
                     </td>

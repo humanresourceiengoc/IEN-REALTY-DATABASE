@@ -57,10 +57,11 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
   const [fileType, setFileType] = useState('application/pdf');
   const [fileSize, setFileSize] = useState(0);
   const [fileData, setFileData] = useState('');
+  const [startDate, setStartDate] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
+  const [isPermanent, setIsPermanent] = useState(false);
   const [referenceNumber, setReferenceNumber] = useState('');
   const [notes, setNotes] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
@@ -77,10 +78,11 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
       setFileType(editingDoc.fileType);
       setFileSize(editingDoc.fileSize);
       setFileData(editingDoc.fileData);
+      setStartDate(editingDoc.startDate || '');
       setExpirationDate(editingDoc.expirationDate || '');
+      setIsPermanent(!!editingDoc.isPermanent);
       setReferenceNumber(editingDoc.referenceNumber || '');
       setNotes(editingDoc.notes || '');
-      setTagsInput(editingDoc.tags ? editingDoc.tags.join(', ') : '');
     } else {
       setSelectedFolderId(defaultFolderId || folders[0]?.id || 'folder_01_engagement');
       setFileName('');
@@ -88,10 +90,11 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
       setFileType('application/pdf');
       setFileSize(0);
       setFileData('');
+      setStartDate(getTodayDateString());
       setExpirationDate('');
+      setIsPermanent(false);
       setReferenceNumber('');
       setNotes('');
-      setTagsInput('');
     }
     setPreviewZoom(100);
     setPreviewRotation(0);
@@ -186,10 +189,6 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
     }
 
     const selectedFolder = folders.find((f) => f.id === selectedFolderId);
-    const tags = tagsInput
-      .split(',')
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
 
     const docToSave: DocumentItem = {
       id: editingDoc ? editingDoc.id : `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -202,10 +201,11 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
       fileSize: fileSize || 350000,
       fileData,
       uploadedAt: editingDoc ? editingDoc.uploadedAt : new Date().toISOString(),
-      expirationDate: expirationDate || undefined,
+      startDate: startDate || undefined,
+      expirationDate: isPermanent ? undefined : (expirationDate || undefined),
+      isPermanent: isPermanent,
       referenceNumber: referenceNumber.trim() || undefined,
       notes: notes.trim() || undefined,
-      tags: tags.length > 0 ? tags : undefined,
     };
 
     onSaveDocument(docToSave);
@@ -375,104 +375,137 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
               </select>
             </div>
 
-            {/* Document Display Name */}
+            {/* Document Display Name / Rename field */}
             <div>
               <label className="block font-bold text-slate-800 mb-1 flex items-center justify-between">
                 <span>Document Display Name / Title <span className="text-rose-500">*</span></span>
-                <span className="text-[10px] text-slate-400 font-normal">Editable anytime</span>
+                <span className="text-[10px] text-sky-700 font-bold bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
+                  Renamable
+                </span>
               </label>
               <input
                 type="text"
                 placeholder="e.g. BIR Form 2303 Certificate of Registration 2026.pdf"
                 value={fileName}
                 onChange={(e) => setFileName(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-medium focus:ring-2 focus:ring-sky-500 focus:bg-white focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-semibold focus:ring-2 focus:ring-sky-500 focus:bg-white focus:outline-none"
                 required
               />
             </div>
 
-            {/* Document Expiration Date with Fast Presets */}
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-              <div className="flex items-center justify-between mb-1.5">
+            {/* Validity Period: START - END & PERMANENT Toggle */}
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
                 <label className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                   <Calendar className="w-3.5 h-3.5 text-sky-600" />
-                  Document Expiration Date
+                  Validity Period (Start &ndash; End)
                 </label>
-                <span className="text-[10px] font-semibold text-sky-700">
-                  Deadline alert tracking
-                </span>
+                
+                {/* Permanent Checkbox Toggle */}
+                <label className="flex items-center gap-1.5 cursor-pointer bg-white px-2 py-1 rounded-lg border border-slate-300 hover:border-amber-400 select-none transition">
+                  <input
+                    type="checkbox"
+                    checked={isPermanent}
+                    onChange={(e) => {
+                      setIsPermanent(e.target.checked);
+                      if (e.target.checked) {
+                        setExpirationDate('');
+                      }
+                    }}
+                    className="w-3.5 h-3.5 rounded text-amber-600 focus:ring-amber-500 accent-amber-600 cursor-pointer"
+                  />
+                  <span className="text-[11px] font-black text-amber-900">
+                    Permanent / Non-Expiring
+                  </span>
+                </label>
               </div>
 
-              <input
-                type="date"
-                value={expirationDate}
-                onChange={(e) => setExpirationDate(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-medium focus:ring-2 focus:ring-sky-500 focus:outline-none"
-              />
+              {/* Start Date & End Date Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <span className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Start Date / Date Issued
+                  </span>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-medium focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  />
+                </div>
 
-              {/* Fast Expiration Presets */}
-              <div className="flex flex-wrap items-center gap-1 mt-2">
-                <span className="text-[10px] font-semibold text-slate-400 mr-0.5">Presets:</span>
-                <button
-                  type="button"
-                  onClick={() => handlePresetExpiration('1year')}
-                  className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-semibold text-slate-700 transition"
-                >
-                  +1 Year
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePresetExpiration('2years')}
-                  className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-semibold text-slate-700 transition"
-                >
-                  +2 Years
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePresetExpiration('5years')}
-                  className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-semibold text-slate-700 transition"
-                >
-                  +5 Years
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePresetExpiration('none')}
-                  className="px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-[10px] font-semibold text-slate-700 transition"
-                >
-                  No Expiration
-                </button>
+                <div>
+                  <span className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    End Date / Expiration Date
+                  </span>
+                  {isPermanent ? (
+                    <div className="w-full bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-amber-800 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>Permanent (No Expiry)</span>
+                    </div>
+                  ) : (
+                    <input
+                      type="date"
+                      value={expirationDate}
+                      onChange={(e) => setExpirationDate(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-medium focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    />
+                  )}
+                </div>
               </div>
+
+              {/* Expiration Presets (Only when not permanent) */}
+              {!isPermanent && (
+                <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-slate-200">
+                  <span className="text-[10px] font-semibold text-slate-400 mr-0.5">Quick Presets:</span>
+                  <button
+                    type="button"
+                    onClick={() => handlePresetExpiration('1year')}
+                    className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-semibold text-slate-700 transition"
+                  >
+                    +1 Year
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePresetExpiration('2years')}
+                    className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-semibold text-slate-700 transition"
+                  >
+                    +2 Years
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePresetExpiration('5years')}
+                    className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-semibold text-slate-700 transition"
+                  >
+                    +5 Years
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPermanent(true);
+                      setExpirationDate('');
+                    }}
+                    className="px-2 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-bold transition border border-amber-300"
+                  >
+                    Mark Permanent
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Reference Number & Tags */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <div>
-                <label className="block font-bold text-slate-800 mb-1 flex items-center gap-1">
-                  <Hash className="w-3 h-3 text-slate-500" />
-                  Reference / Permit No.
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. BIR-2303-2026"
-                  value={referenceNumber}
-                  onChange={(e) => setReferenceNumber(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:ring-2 focus:ring-sky-500 focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-800 mb-1 flex items-center gap-1">
-                  <Tag className="w-3 h-3 text-slate-500" />
-                  Category Tags
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Tax, LGU, Audit"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:ring-2 focus:ring-sky-500 focus:bg-white focus:outline-none"
-                />
-              </div>
+            {/* Reference Number */}
+            <div>
+              <label className="block font-bold text-slate-800 mb-1 flex items-center gap-1">
+                <Hash className="w-3 h-3 text-slate-500" />
+                Reference / Permit / Document Number
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. BIR-2303-2026 or SEC-CS202100892"
+                value={referenceNumber}
+                onChange={(e) => setReferenceNumber(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:ring-2 focus:ring-sky-500 focus:bg-white focus:outline-none"
+              />
             </div>
 
             {/* Notes */}

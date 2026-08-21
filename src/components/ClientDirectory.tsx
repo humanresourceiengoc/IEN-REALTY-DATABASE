@@ -27,7 +27,8 @@ import {
   calculateDaysRemaining, 
   formatDateDisplay, 
   formatRemainingDaysText, 
-  getUrgencySeverity 
+  getUrgencySeverity,
+  getContractStatusDisplay
 } from '../utils/dateUtils';
 
 interface ClientDirectoryProps {
@@ -67,6 +68,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
       const matchesSearch = 
         !q ||
         client.clientName.toLowerCase().includes(q) ||
+        (client.codeName && client.codeName.toLowerCase().includes(q)) ||
         (client.tradeName && client.tradeName.toLowerCase().includes(q)) ||
         (client.cifNo && client.cifNo.toLowerCase().includes(q)) ||
         (client.tin && client.tin.toLowerCase().includes(q)) ||
@@ -297,6 +299,11 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
 
                         {/* Registration Type & Service Category Badges */}
                         <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          {client.codeName && (
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                              CODE: {client.codeName}
+                            </span>
+                          )}
                           {client.registrationType && (
                             <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
                               <Building className="w-2.5 h-2.5" />

@@ -31,27 +31,12 @@ export function generateAllAlerts(
       }
     }
 
-    // 2. Annual Submission (BIR 0605 / SEC GIS / LGU)
-    if (client.annualSubDate) {
-      const days = calculateDaysRemaining(client.annualSubDate);
-      if (days !== null) {
-        const severity = getUrgencySeverity(days);
-        alerts.push({
-          id: `alert_annual_${client.id}`,
-          clientId: client.id,
-          clientName: client.clientName,
-          title: `Annual Submission Filing: ${client.annualSubNotes || 'Corporate Compliance / BIR / LGU'}`,
-          category: 'ANNUAL_SUBMISSION',
-          dueDate: client.annualSubDate,
-          daysRemaining: days,
-          severity,
-        });
-      }
-    }
-
-    // 3. Document Expiration Alerts
+    // 2. Document Expiration Alerts (Skip if marked as permanent)
     const clientDocs = documents.filter((d) => d.clientId === client.id);
     for (const doc of clientDocs) {
+      if (doc.isPermanent) {
+        continue; // Permanent documents do not expire
+      }
       if (doc.expirationDate) {
         const days = calculateDaysRemaining(doc.expirationDate);
         if (days !== null) {

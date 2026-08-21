@@ -6,6 +6,7 @@ export type StandardServiceCategory = 'Virtual Client' | 'Retainer' | 'Virtual R
 export interface ClientProfile {
   id: string;
   clientName: string;
+  codeName?: string; // Client Code / Code Name (e.g. SOLARIS, IEN-001)
   tradeName: string;
   logoUrl?: string;
   dateOfEngagement: string; // YYYY-MM-DD
@@ -19,8 +20,6 @@ export interface ClientProfile {
   tin: string; // Tax Identification Number
   ocnNumber: string; // Official Confirmation Number
   atpOcn: string; // Authority to Print OCN
-  annualSubDate: string; // Annual Submission Date (e.g. BIR 0605 / SEC GIS)
-  annualSubNotes?: string;
   contractDate: string; // YYYY-MM-DD
   maturityDate: string; // YYYY-MM-DD
   status: ClientStatus;
@@ -79,7 +78,9 @@ export interface DocumentItem {
   fileSize: number;
   fileData: string; // base64 or blob URL
   uploadedAt: string;
-  expirationDate?: string; // YYYY-MM-DD
+  startDate?: string; // YYYY-MM-DD (Start Date / Date Issued / Effective Date)
+  expirationDate?: string; // YYYY-MM-DD (End Date / Expiry Date)
+  isPermanent?: boolean; // Flag if document is permanent / non-expiring
   referenceNumber?: string; // e.g. Form 2303, Cert No. 2026-9812
   notes?: string;
   tags?: string[];

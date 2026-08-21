@@ -84,3 +84,81 @@ export function addYearsToDate(years: number, fromDateStr?: string): string {
   const day = String(base.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+export function determineContractStatus(maturityDate?: string, currentStatus?: string): 'Active' | 'Active Renewal' | 'Expired' | 'Terminated' {
+  if (currentStatus === 'Terminated') return 'Terminated';
+  if (!maturityDate) return 'Active';
+
+  const days = calculateDaysRemaining(maturityDate);
+  if (days === null) return 'Active';
+
+  if (days < 0) {
+    return 'Expired'; // Contract has lapsed
+  }
+  
+  if (currentStatus === 'Active Renewal') {
+    return 'Active Renewal';
+  }
+
+  if (days <= 60) {
+    return 'Active Renewal'; // Auto-suggest renewal window
+  }
+
+  return 'Active';
+}
+
+export interface ContractStatusDisplay {
+  label: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  dotColor: string;
+  description: string;
+}
+
+export function getContractStatusDisplay(status: string, maturityDate?: string): ContractStatusDisplay {
+  const days = calculateDaysRemaining(maturityDate);
+
+  if (status === 'Terminated') {
+    return {
+      label: 'Contract Terminated',
+      badgeBg: 'bg-rose-950/80',
+      badgeText: 'text-rose-300',
+      badgeBorder: 'border-rose-700/60',
+      dotColor: 'bg-rose-500',
+      description: 'Account engagement formally ended',
+    };
+  }
+
+  if (status === 'Expired' || (days !== null && days < 0)) {
+    const absDays = days !== null ? Math.abs(days) : 0;
+    return {
+      label: 'Contract Expired',
+      badgeBg: 'bg-red-950/90',
+      badgeText: 'text-red-300',
+      badgeBorder: 'border-red-600/70',
+      dotColor: 'bg-red-500 animate-ping',
+      description: days !== null && days < 0 ? `Lapsed ${absDays} day${absDays === 1 ? '' : 's'} ago` : 'Contract has reached maturity',
+    };
+  }
+
+  if (status === 'Active Renewal' || (days !== null && days <= 60)) {
+    return {
+      label: 'Contract Renewal',
+      badgeBg: 'bg-amber-950/80',
+      badgeText: 'text-amber-300',
+      badgeBorder: 'border-amber-600/60',
+      dotColor: 'bg-amber-400 animate-pulse',
+      description: days !== null ? `Matures in ${days} days (Renewal Window)` : 'Renewal in progress',
+    };
+  }
+
+  return {
+    label: 'Contract Active',
+    badgeBg: 'bg-emerald-950/80',
+    badgeText: 'text-emerald-300',
+    badgeBorder: 'border-emerald-600/60',
+    dotColor: 'bg-emerald-400',
+    description: days !== null ? `${days} days remaining on contract` : 'Contract is in good standing',
+  };
+}

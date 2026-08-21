@@ -173,6 +173,12 @@ export const ComplianceSummaryModal: React.FC<ComplianceSummaryModalProps> = ({
                   Tax & Regulatory Identifiers
                 </h4>
                 <div className="space-y-2">
+                  {client.codeName && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600 font-medium">Code Name:</span>
+                      <span className="font-bold text-amber-900">{client.codeName}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-slate-600 font-medium">Registration Type:</span>
                     <span className="font-bold text-indigo-900">{client.registrationType || 'Corporation'}</span>
@@ -193,13 +199,6 @@ export const ComplianceSummaryModal: React.FC<ComplianceSummaryModalProps> = ({
                     <span className="text-slate-600 font-medium">ATP OCN:</span>
                     <span className="font-mono font-bold text-slate-950">{client.atpOcn || 'N/A'}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600 font-medium">Annual Submission:</span>
-                    <span className="font-bold text-slate-950">{formatDateDisplay(client.annualSubDate)}</span>
-                  </div>
-                  {client.annualSubNotes && (
-                    <p className="text-[10px] text-slate-500 italic mt-1">{client.annualSubNotes}</p>
-                  )}
                 </div>
               </div>
 

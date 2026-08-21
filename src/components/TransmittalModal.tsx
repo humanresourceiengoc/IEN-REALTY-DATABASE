@@ -315,9 +315,10 @@ export const TransmittalModal: React.FC<TransmittalModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                   
                   {/* Option 1: In Custody */}
-                  <div
+                  <button
+                    type="button"
                     onClick={() => handleStatusChange('in_custody')}
-                    className={`cursor-pointer p-3 rounded-xl border-2 transition ${
+                    className={`text-left p-3 rounded-xl border-2 transition ${
                       status === 'in_custody'
                         ? 'border-slate-800 bg-slate-100 ring-2 ring-slate-800/10'
                         : 'border-slate-200 hover:border-slate-300 bg-slate-50'
@@ -333,14 +334,15 @@ export const TransmittalModal: React.FC<TransmittalModalProps> = ({
                     </div>
                     <span className="font-bold text-slate-900 block text-xs">In Custody</span>
                     <p className="text-[10px] text-slate-500 mt-0.5">
-                      Document is safely in IEN Realty corporate archive / physical file.
+                      Document is safely in IEN Realty physical file archive.
                     </p>
-                  </div>
+                  </button>
 
                   {/* Option 2: Transmitted (Out for processing) */}
-                  <div
+                  <button
+                    type="button"
                     onClick={() => handleStatusChange('transmitted')}
-                    className={`cursor-pointer p-3 rounded-xl border-2 transition ${
+                    className={`text-left p-3 rounded-xl border-2 transition ${
                       status === 'transmitted'
                         ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20'
                         : 'border-slate-200 hover:border-amber-300 bg-slate-50'
@@ -356,14 +358,15 @@ export const TransmittalModal: React.FC<TransmittalModalProps> = ({
                     </div>
                     <span className="font-bold text-amber-950 block text-xs">Transmitted (Out)</span>
                     <p className="text-[10px] text-slate-500 mt-0.5">
-                      Dispatched to government agency, bank, or client for assessment.
+                      Dispatched to government agency, bank, or client.
                     </p>
-                  </div>
+                  </button>
 
                   {/* Option 3: Returned / Received Back */}
-                  <div
+                  <button
+                    type="button"
                     onClick={() => handleStatusChange('returned')}
-                    className={`cursor-pointer p-3 rounded-xl border-2 transition ${
+                    className={`text-left p-3 rounded-xl border-2 transition ${
                       status === 'returned'
                         ? 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20'
                         : 'border-slate-200 hover:border-emerald-300 bg-slate-50'
@@ -381,12 +384,13 @@ export const TransmittalModal: React.FC<TransmittalModalProps> = ({
                     <p className="text-[10px] text-slate-500 mt-0.5">
                       Returned to office after official receiving stamp or assessment.
                     </p>
-                  </div>
+                  </button>
 
                   {/* Option 4: Acknowledged by Recipient */}
-                  <div
+                  <button
+                    type="button"
                     onClick={() => handleStatusChange('acknowledged')}
-                    className={`cursor-pointer p-3 rounded-xl border-2 transition ${
+                    className={`text-left p-3 rounded-xl border-2 transition ${
                       status === 'acknowledged'
                         ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-500/20'
                         : 'border-slate-200 hover:border-sky-300 bg-slate-50'
@@ -404,7 +408,7 @@ export const TransmittalModal: React.FC<TransmittalModalProps> = ({
                     <p className="text-[10px] text-slate-500 mt-0.5">
                       Received & retained permanently by recipient with signed receipt.
                     </p>
-                  </div>
+                  </button>
 
                 </div>
               </div>
@@ -575,6 +579,99 @@ export const TransmittalModal: React.FC<TransmittalModalProps> = ({
                   />
                 </div>
 
+              </div>
+
+              {/* Transfer Movement History Snapshot (Kanino na-transfer & Date) */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
+                    <History className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Transfer Record & History (Date & Kanino Na-Transfer)</span>
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('history')}
+                    className="text-[11px] font-bold text-sky-600 hover:text-sky-700 underline"
+                  >
+                    View All {movementHistory.length} Movement Logs
+                  </button>
+                </div>
+
+                {/* Current Active Transfer details summary */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 bg-white p-3 rounded-lg border border-slate-200 text-xs">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Status</span>
+                    <span className={`inline-block mt-0.5 text-[11px] font-bold px-2 py-0.5 rounded ${currentConfig.badgeBg} ${currentConfig.badgeText} border ${currentConfig.badgeBorder}`}>
+                      {currentConfig.label}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Date of Transfer</span>
+                    <span className="font-bold text-slate-800 text-[11px] block mt-0.5">
+                      {transmittedDate ? formatDateDisplay(transmittedDate) : 'Not transferred yet'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Kanino Na-Transfer</span>
+                    <span className="font-bold text-slate-900 text-[11px] block mt-0.5 truncate" title={transmittedTo || 'In IEN Custody'}>
+                      {transmittedTo || 'IEN Realty Office Archive'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Carrier / Dispatched By</span>
+                    <span className="font-semibold text-slate-700 text-[11px] block mt-0.5 truncate">
+                      {carrierOrMessenger || 'IEN Staff'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Past Movement logs preview */}
+                {movementHistory.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                      Past Document Transfers ({movementHistory.length}):
+                    </span>
+                    <div className="divide-y divide-slate-200 border border-slate-200 rounded-lg bg-white overflow-hidden max-h-36 overflow-y-auto text-[11px]">
+                      {movementHistory.map((mov, idx) => (
+                        <div key={mov.id || idx} className="p-2.5 flex items-center justify-between gap-3 hover:bg-slate-50">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                                mov.action === 'TRANSMITTED'
+                                  ? 'bg-amber-100 text-amber-900'
+                                  : mov.action === 'RETURNED'
+                                  ? 'bg-emerald-100 text-emerald-900'
+                                  : mov.action === 'ACKNOWLEDGED'
+                                  ? 'bg-sky-100 text-sky-900'
+                                  : 'bg-slate-100 text-slate-800'
+                              }`}>
+                                {mov.action}
+                              </span>
+                              <span className="font-bold text-slate-900 truncate">
+                                {mov.recipientOrSource}
+                              </span>
+                            </div>
+                            {mov.purpose && (
+                              <p className="text-slate-500 text-[10px] truncate mt-0.5">
+                                Purpose: {mov.purpose}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-mono text-slate-600 text-[10px] block">
+                              {formatDateDisplay(mov.date)}
+                            </span>
+                            {mov.courierOrPersonnel && (
+                              <span className="text-slate-400 text-[9px] block">
+                                By: {mov.courierOrPersonnel}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}

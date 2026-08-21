@@ -12,10 +12,21 @@ import {
   ShieldCheck, 
   Image as ImageIcon,
   Clock,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle,
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import { ClientProfile, ClientStatus } from '../types';
-import { getTodayDateString, addYearsToDate } from '../utils/dateUtils';
+import { 
+  getTodayDateString, 
+  addYearsToDate, 
+  addMonthsToDate, 
+  calculateDaysRemaining, 
+  formatRemainingDaysText, 
+  determineContractStatus,
+  getContractStatusDisplay
+} from '../utils/dateUtils';
 
 interface EditClientModalProps {
   isOpen: boolean;
@@ -31,6 +42,7 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
   onSaveClient,
 }) => {
   const [clientName, setClientName] = useState('');
+  const [codeName, setCodeName] = useState('');
   const [tradeName, setTradeName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [dateOfEngagement, setDateOfEngagement] = useState('');
@@ -48,17 +60,57 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
   const [tin, setTin] = useState('');
   const [ocnNumber, setOcnNumber] = useState('');
   const [atpOcn, setAtpOcn] = useState('');
-  const [annualSubDate, setAnnualSubDate] = useState('');
-  const [annualSubNotes, setAnnualSubNotes] = useState('');
   const [contractDate, setContractDate] = useState('');
   const [maturityDate, setMaturityDate] = useState('');
   const [status, setStatus] = useState<ClientStatus>('Active');
+  const [autoSyncStatus, setAutoSyncStatus] = useState(true);
   const [notes, setNotes] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Handle contract date adjustments & duration presets
+  const handleSetContractDuration = (years: number, months: number = 0) => {
+    const base = contractDate || getTodayDateString();
+    let newMaturity = base;
+    if (years > 0) {
+      newMaturity = addYearsToDate(years, base);
+    } else if (months > 0) {
+      newMaturity = addMonthsToDate(months, base);
+    }
+    setMaturityDate(newMaturity);
+
+    if (autoSyncStatus && status !== 'Terminated') {
+      const calculated = determineContractStatus(newMaturity, status);
+      setStatus(calculated);
+    }
+  };
+
+  const handleMaturityDateChange = (newMaturity: string) => {
+    setMaturityDate(newMaturity);
+    if (autoSyncStatus && status !== 'Terminated') {
+      const calculated = determineContractStatus(newMaturity, status);
+      setStatus(calculated);
+    }
+  };
+
+  const handleContractDateChange = (newContractDate: string) => {
+    setContractDate(newContractDate);
+    // If maturity is empty or prior to contract date, default to +1 year
+    if (!maturityDate || maturityDate <= newContractDate) {
+      const newMaturity = addYearsToDate(1, newContractDate);
+      setMaturityDate(newMaturity);
+      if (autoSyncStatus && status !== 'Terminated') {
+        setStatus(determineContractStatus(newMaturity, status));
+      }
+    }
+  };
+
+  const contractDaysRemaining = calculateDaysRemaining(maturityDate);
+  const contractStatusInfo = getContractStatusDisplay(status, maturityDate);
 
   useEffect(() => {
     if (client) {
       setClientName(client.clientName);
+      setCodeName(client.codeName || '');
       setTradeName(client.tradeName || '');
       setLogoUrl(client.logoUrl || '');
       setDateOfEngagement(client.dateOfEngagement || getTodayDateString());
@@ -95,8 +147,6 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
       setTin(client.tin || '');
       setOcnNumber(client.ocnNumber || '');
       setAtpOcn(client.atpOcn || '');
-      setAnnualSubDate(client.annualSubDate || '');
-      setAnnualSubNotes(client.annualSubNotes || '');
       setContractDate(client.contractDate || getTodayDateString());
       setMaturityDate(client.maturityDate || addYearsToDate(1, getTodayDateString()));
       
@@ -116,6 +166,7 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
     } else {
       const today = getTodayDateString();
       setClientName('');
+      setCodeName('');
       setTradeName('');
       setLogoUrl('');
       setDateOfEngagement(today);
@@ -133,8 +184,6 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
       setTin('');
       setOcnNumber('');
       setAtpOcn('');
-      setAnnualSubDate(addYearsToDate(1, today));
-      setAnnualSubNotes('BIR Form 1702 Annual Income Tax & LGU Business Permit Renewal');
       setContractDate(today);
       setMaturityDate(addYearsToDate(1, today));
       setStatus('Active');
@@ -180,6 +229,7 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
     const savedClient: ClientProfile = {
       id: client ? client.id : `client_${Date.now()}_${Math.random().toString(36).substr(2, 7)}`,
       clientName: clientName.trim(),
+      codeName: codeName.trim() || undefined,
       tradeName: tradeName.trim(),
       logoUrl: logoUrl.trim(),
       dateOfEngagement: dateOfEngagement || getTodayDateString(),
@@ -193,8 +243,6 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
       tin: tin.trim(),
       ocnNumber: ocnNumber.trim(),
       atpOcn: atpOcn.trim(),
-      annualSubDate: annualSubDate.trim(),
-      annualSubNotes: annualSubNotes.trim(),
       contractDate: contractDate.trim(),
       maturityDate: maturityDate.trim(),
       status,
@@ -293,19 +341,34 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
 
               {/* Client Name, Trade Name, CIF & Status */}
               <div className="flex-1 w-full space-y-3.5">
-                {/* Full Width Registered Name */}
-                <div>
-                  <label className="block font-bold text-slate-800 text-xs mb-1.5">
-                    Client Name (Registered Corporate / Entity Name) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. SOLARIS PRIME COMMERCIAL TOWER HOLDINGS"
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    className="w-full bg-white border border-slate-300 focus:border-sky-500 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-sky-500/20 focus:outline-none shadow-xs transition"
-                    required
-                  />
+                {/* 2 Columns: Client Name and Code Name */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-slate-800 text-xs mb-1.5">
+                      Client Name (Registered Corporate / Entity Name) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. SOLARIS PRIME COMMERCIAL TOWER HOLDINGS"
+                      value={clientName}
+                      onChange={(e) => setClientName(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-sky-500 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-sky-500/20 focus:outline-none shadow-xs transition"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-800 text-xs mb-1.5">
+                      Code / Code Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. SOLARIS / IEN-001"
+                      value={codeName}
+                      onChange={(e) => setCodeName(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-sky-500 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-sky-900 focus:ring-2 focus:ring-sky-500/20 focus:outline-none shadow-xs transition uppercase"
+                    />
+                  </div>
                 </div>
 
                 {/* 3 Columns: Trade Name, CIF, Status */}
@@ -338,18 +401,21 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-800 mb-1">
-                      Account Status <span className="text-rose-500">*</span>
+                    <label className="block font-bold text-slate-800 mb-1 flex items-center justify-between">
+                      <span>Account Status <span className="text-rose-500">*</span></span>
+                      <span className="text-[10px] text-sky-600 font-semibold flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5" /> Contract Connected
+                      </span>
                     </label>
                     <select
                       value={status}
                       onChange={(e) => setStatus(e.target.value as ClientStatus)}
                       className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 focus:outline-none shadow-xs"
                     >
-                      <option value="Active">Active</option>
-                      <option value="Active Renewal">Active Renewal</option>
-                      <option value="Expired">Expired</option>
-                      <option value="Terminated">Terminated</option>
+                      <option value="Active">Active (Contract Valid)</option>
+                      <option value="Active Renewal">Active Renewal (Under Negotiation)</option>
+                      <option value="Expired">Expired (Contract Lapsed)</option>
+                      <option value="Terminated">Terminated (Contract Ended)</option>
                     </select>
                   </div>
                 </div>
@@ -454,78 +520,132 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
             </div>
           </div>
 
-          {/* Section 2: Engagement, Contract & Maturity Dates (Drives Remaining Days) */}
-          <div className="bg-sky-50/40 p-4 rounded-xl border border-sky-200 space-y-3">
-            <h4 className="font-bold text-sky-950 text-xs uppercase tracking-wider flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-sky-600" />
-              Contract Dates & Maturity Countdown Tracker
-            </h4>
+          {/* Section 2: Engagement, Contract & Maturity Dates (Connected to Account Status) */}
+          <div className="bg-sky-50/50 p-4 sm:p-5 rounded-2xl border border-sky-200 space-y-4 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <h4 className="font-extrabold text-sky-950 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-sky-600" />
+                <span>Contract Validity & Status Connection</span>
+              </h4>
+
+              {/* Status Sync Indicator */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-600">Contract Status:</span>
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border ${contractStatusInfo.badgeBg} ${contractStatusInfo.badgeText} ${contractStatusInfo.badgeBorder}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${contractStatusInfo.dotColor}`} />
+                  <span>{contractStatusInfo.label}</span>
+                </span>
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block font-bold text-slate-800 mb-1">
+                <label className="block font-bold text-slate-800 text-xs mb-1">
                   Date of Engagement
                 </label>
                 <input
                   type="date"
                   value={dateOfEngagement}
                   onChange={(e) => setDateOfEngagement(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-2xs"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-800 mb-1">
-                  Contract Date
+                <label className="block font-bold text-slate-800 text-xs mb-1">
+                  Contract Start Date
                 </label>
                 <input
                   type="date"
                   value={contractDate}
-                  onChange={(e) => setContractDate(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  onChange={(e) => handleContractDateChange(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-2xs"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-800 mb-1 flex items-center justify-between">
-                  <span>Maturity Date</span>
-                  <span className="text-[10px] text-sky-700 font-semibold">Remaining Days Alert</span>
+                <label className="block font-bold text-slate-800 text-xs mb-1 flex items-center justify-between">
+                  <span>Maturity (End Date) <span className="text-rose-500">*</span></span>
+                  <span className="text-[10px] text-sky-700 font-semibold">
+                    {formatRemainingDaysText(contractDaysRemaining)}
+                  </span>
                 </label>
                 <input
                   type="date"
                   value={maturityDate}
-                  onChange={(e) => setMaturityDate(e.target.value)}
-                  className="w-full bg-white border border-sky-400 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  onChange={(e) => handleMaturityDateChange(e.target.value)}
+                  className="w-full bg-white border border-sky-400 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-2xs"
                   required
                 />
               </div>
             </div>
 
-            {/* Annual Submission Tracker */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-sky-200/60">
-              <div>
-                <label className="block font-bold text-slate-800 mb-1">
-                  Annual Submission (Annual Sub) Deadline
-                </label>
-                <input
-                  type="date"
-                  value={annualSubDate}
-                  onChange={(e) => setAnnualSubDate(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                />
+            {/* Quick Contract Duration Presets & Auto-Sync Switch */}
+            <div className="bg-white p-3 rounded-xl border border-sky-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] font-bold text-slate-600 mr-1 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Set Contract Length:</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleSetContractDuration(0, 6)}
+                  className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 font-bold text-[11px] transition active:scale-95"
+                >
+                  +6 Months
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetContractDuration(1)}
+                  className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 font-bold text-[11px] transition active:scale-95"
+                >
+                  +1 Year
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetContractDuration(2)}
+                  className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 font-bold text-[11px] transition active:scale-95"
+                >
+                  +2 Years
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetContractDuration(3)}
+                  className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 font-bold text-[11px] transition active:scale-95"
+                >
+                  +3 Years
+                </button>
               </div>
-              <div>
-                <label className="block font-bold text-slate-800 mb-1">
-                  Annual Sub Details / Requirements
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. BIR Form 1702-RT, Audited Financials, LGU Permit"
-                  value={annualSubNotes}
-                  onChange={(e) => setAnnualSubNotes(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                />
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextSync = !autoSyncStatus;
+                    setAutoSyncStatus(nextSync);
+                    if (nextSync && status !== 'Terminated') {
+                      setStatus(determineContractStatus(maturityDate, status));
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold border transition ${
+                    autoSyncStatus 
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : 'bg-slate-100 text-slate-600 border-slate-300'
+                  }`}
+                  title="When enabled, changing contract dates automatically calculates if contract is Active, Expired, or in Renewal"
+                >
+                  <RefreshCw className={`w-3 h-3 ${autoSyncStatus ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  <span>Auto-Sync Status with Maturity</span>
+                </button>
               </div>
+            </div>
+
+            {/* Live Connection Explanation */}
+            <div className="text-[11px] text-slate-500 bg-sky-100/40 p-2.5 rounded-lg border border-sky-200/60 flex items-start gap-2">
+              <AlertCircle className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
+              <p>
+                <strong>Status Connection:</strong> When the maturity date passes, the account automatically flags as <span className="font-bold text-rose-600">Expired</span>. When within 60 days of maturity, it flags as <span className="font-bold text-amber-600">Active Renewal</span>. Active contracts indicate valid engagement up to maturity.
+              </p>
             </div>
           </div>
 

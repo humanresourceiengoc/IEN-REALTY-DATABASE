@@ -20,15 +20,17 @@ export const DEFAULT_FOLDERS: FolderDefinition[] = [
   {
     id: 'folder_02_dti',
     code: '02',
-    name: 'DTI FILES',
+    name: 'SEC FILES',
     color: 'blue',
     badgeBg: 'bg-blue-50 text-blue-700 border-blue-200',
-    description: 'Department of Trade and Industry Business Name Registration Certificates and renewals.',
+    description: 'Securities and Exchange Commission (SEC) Registration Certificates, Articles of Incorporation, By-Laws, GIS, & DTI Business Name records.',
     suggestedDocs: [
-      'DTI Business Name Registration Certificate',
-      'DTI Application Form & Payment Official Receipt',
-      'DTI Certificate of Renewal',
-      'Change of Business Information Form'
+      'SEC Certificate of Incorporation / Registration',
+      'SEC Articles of Incorporation & By-Laws',
+      'SEC General Information Sheet (GIS)',
+      'SEC Form 17-A / Audited Financial Statements (AFS)',
+      'Board Resolution / Secretary’s Certificate',
+      'DTI Business Name Registration Certificate'
     ],
     isDefault: true,
   },
