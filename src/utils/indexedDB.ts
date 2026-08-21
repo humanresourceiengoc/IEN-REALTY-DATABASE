@@ -1,6 +1,6 @@
 import { ClientProfile, DocumentItem, FolderDefinition, CloudSyncState } from '../types';
 import { INITIAL_CLIENTS, INITIAL_DOCUMENTS, INITIAL_CUSTOM_FOLDERS } from '../data/seedData';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { collection, doc, getDocs, setDoc, deleteDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 
 const DB_NAME = 'IEN_REALTY_COMPLIANCE_DB';
@@ -12,6 +12,22 @@ const STORES = {
   CUSTOM_FOLDERS: 'custom_folders',
   SETTINGS: 'settings',
 };
+
+// Helper to remove any undefined properties before writing to Firestore
+function cleanForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) return null as unknown as T;
+  if (typeof data !== 'object') return data;
+  if (Array.isArray(data)) {
+    return data.map((item) => cleanForFirestore(item)) as unknown as T;
+  }
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) {
+      cleaned[key] = cleanForFirestore(value);
+    }
+  }
+  return cleaned as T;
+}
 
 class StorageService {
   private dbPromise: Promise<IDBDatabase> | null = null;
@@ -35,6 +51,7 @@ class StorageService {
 
   private unsubscribeClients: (() => void) | null = null;
   private unsubscribeDocs: (() => void) | null = null;
+  private unsubscribeFolders: (() => void) | null = null;
   private isRealtimeActive = false;
 
   private openDB(): Promise<IDBDatabase> {
@@ -150,7 +167,7 @@ class StorageService {
         collection(db, 'clients'),
         async (snapshot) => {
           if (snapshot.empty) {
-            // Seed Firestore with initial clients if cloud collection is fresh
+            // Seed Firestore with initial clients (including A.B Soterio) if cloud is empty
             await this.seedCloudIfEmpty();
             return;
           }
@@ -160,9 +177,31 @@ class StorageService {
             remoteClients.push(docSnap.data() as ClientProfile);
           });
 
-          // Sync into memory & indexedDB
-          for (const c of remoteClients) {
-            await this.saveClientLocal(c);
+          // Check if A.B Soterio or any initial client is missing from remote
+          const missingInitial = INITIAL_CLIENTS.filter(
+            (initC) => !remoteClients.some((rc) => rc.id === initC.id || rc.cifNo === initC.cifNo)
+          );
+          if (missingInitial.length > 0) {
+            for (const missing of missingInitial) {
+              remoteClients.unshift(missing);
+              // Asynchronously push missing initial to Firestore
+              setDoc(doc(db, 'clients', missing.id), cleanForFirestore(missing)).catch((e) =>
+                console.warn('Auto-sync missing initial client to cloud:', e)
+              );
+            }
+          }
+
+          // Update memory & local IndexedDB cache
+          this.memoryClients = remoteClients;
+          try {
+            const idb = await this.openDB();
+            const tx = idb.transaction(STORES.CLIENTS, 'readwrite');
+            const store = tx.objectStore(STORES.CLIENTS);
+            for (const c of remoteClients) {
+              store.put(c);
+            }
+          } catch (e) {
+            console.warn('IndexedDB mirror note:', e);
           }
 
           this.updateSyncState({
@@ -192,8 +231,29 @@ class StorageService {
               remoteDocs.push(docSnap.data() as DocumentItem);
             });
 
-            for (const d of remoteDocs) {
-              await this.saveDocumentLocal(d);
+            // Check if any initial docs are missing from remote
+            const missingDocs = INITIAL_DOCUMENTS.filter(
+              (initD) => !remoteDocs.some((rd) => rd.id === initD.id)
+            );
+            if (missingDocs.length > 0) {
+              for (const missing of missingDocs) {
+                remoteDocs.push(missing);
+                setDoc(doc(db, 'documents', missing.id), cleanForFirestore(missing)).catch((e) =>
+                  console.warn('Auto-sync missing initial doc to cloud:', e)
+                );
+              }
+            }
+
+            this.memoryDocs = remoteDocs;
+            try {
+              const idb = await this.openDB();
+              const tx = idb.transaction(STORES.DOCUMENTS, 'readwrite');
+              const store = tx.objectStore(STORES.DOCUMENTS);
+              for (const d of remoteDocs) {
+                store.put(d);
+              }
+            } catch (e) {
+              console.warn('IndexedDB doc mirror note:', e);
             }
 
             this.updateSyncState({
@@ -203,6 +263,9 @@ class StorageService {
             });
 
             this.notifyDataChange({ type: 'documents' });
+          } else {
+            // Seed cloud documents if empty
+            await this.seedCloudDocsIfEmpty();
           }
         },
         (error) => {
@@ -222,14 +285,25 @@ class StorageService {
       const snap = await getDocs(collection(db, 'clients'));
       if (snap.empty) {
         for (const client of INITIAL_CLIENTS) {
-          await setDoc(doc(db, 'clients', client.id), client);
+          await setDoc(doc(db, 'clients', client.id), cleanForFirestore(client));
         }
+      }
+      await this.seedCloudDocsIfEmpty();
+    } catch (e) {
+      console.info('Cloud initial seeding notice:', e);
+    }
+  }
+
+  private async seedCloudDocsIfEmpty(): Promise<void> {
+    try {
+      const snap = await getDocs(collection(db, 'documents'));
+      if (snap.empty) {
         for (const docItem of INITIAL_DOCUMENTS) {
-          await setDoc(doc(db, 'documents', docItem.id), docItem);
+          await setDoc(doc(db, 'documents', docItem.id), cleanForFirestore(docItem));
         }
       }
     } catch (e) {
-      console.info('Cloud initial seeding notice:', e);
+      console.info('Cloud doc seeding notice:', e);
     }
   }
 
@@ -239,8 +313,13 @@ class StorageService {
     try {
       const clientsSnapshot = await getDocs(collection(db, 'clients'));
       if (!clientsSnapshot.empty) {
+        const cloudClients: ClientProfile[] = [];
         for (const docSnap of clientsSnapshot.docs) {
-          await this.saveClientLocal(docSnap.data() as ClientProfile);
+          cloudClients.push(docSnap.data() as ClientProfile);
+        }
+        this.memoryClients = cloudClients;
+        for (const c of cloudClients) {
+          await this.saveClientLocal(c);
         }
       } else {
         await this.seedCloudIfEmpty();
@@ -248,9 +327,21 @@ class StorageService {
 
       const docsSnapshot = await getDocs(collection(db, 'documents'));
       if (!docsSnapshot.empty) {
+        const cloudDocs: DocumentItem[] = [];
         for (const docSnap of docsSnapshot.docs) {
-          await this.saveDocumentLocal(docSnap.data() as DocumentItem);
+          cloudDocs.push(docSnap.data() as DocumentItem);
         }
+        this.memoryDocs = cloudDocs;
+        for (const d of cloudDocs) {
+          await this.saveDocumentLocal(d);
+        }
+      } else {
+        await this.seedCloudDocsIfEmpty();
+      }
+
+      // Also ensure all local clients exist in cloud
+      for (const client of this.memoryClients) {
+        await setDoc(doc(db, 'clients', client.id), cleanForFirestore(client));
       }
 
       const totalClients = await this.getClients();
@@ -343,16 +434,20 @@ class StorageService {
   }
 
   public async saveClient(client: ClientProfile): Promise<void> {
-    const updated = { ...client, updatedAt: new Date().toISOString() };
+    const updated: ClientProfile = {
+      ...client,
+      updatedAt: new Date().toISOString(),
+    };
     await this.saveClientLocal(updated);
 
     // Save directly to Firestore Cloud
     try {
-      await setDoc(doc(db, 'clients', client.id), updated);
+      await setDoc(doc(db, 'clients', client.id), cleanForFirestore(updated));
       this.updateSyncState({
         status: 'synced',
         lastSyncedAt: new Date().toISOString(),
       });
+      this.notifyDataChange({ type: 'clients' });
     } catch (e) {
       console.warn('Cloud sync error for saveClient:', e);
     }
@@ -391,6 +486,7 @@ class StorageService {
     // Delete in Firestore Cloud
     try {
       await deleteDoc(doc(db, 'clients', clientId));
+      this.notifyDataChange({ type: 'clients' });
     } catch (e) {
       console.warn('Cloud delete client note:', e);
     }
@@ -446,11 +542,12 @@ class StorageService {
 
     // Save directly to Firestore Cloud
     try {
-      await setDoc(doc(db, 'documents', docItem.id), docItem);
+      await setDoc(doc(db, 'documents', docItem.id), cleanForFirestore(docItem));
       this.updateSyncState({
         status: 'synced',
         lastSyncedAt: new Date().toISOString(),
       });
+      this.notifyDataChange({ type: 'documents' });
     } catch (e) {
       console.warn('Cloud sync error for saveDocument:', e);
     }
@@ -472,6 +569,7 @@ class StorageService {
     // Delete in Firestore Cloud
     try {
       await deleteDoc(doc(db, 'documents', documentId));
+      this.notifyDataChange({ type: 'documents' });
     } catch (e) {
       console.warn('Cloud delete document note:', e);
     }
@@ -524,6 +622,12 @@ class StorageService {
         console.warn('Falling back to memory for saveCustomFolder:', e);
       }
     }
+
+    try {
+      await setDoc(doc(db, 'custom_folders', folder.id), cleanForFirestore(folder));
+    } catch (e) {
+      console.warn('Custom folder cloud sync note:', e);
+    }
   }
 
   public async deleteCustomFolder(folderId: string): Promise<void> {
@@ -542,6 +646,12 @@ class StorageService {
       } catch (e) {
         console.warn('Falling back to memory for deleteCustomFolder:', e);
       }
+    }
+
+    try {
+      await deleteDoc(doc(db, 'custom_folders', folderId));
+    } catch (e) {
+      console.warn('Custom folder cloud delete note:', e);
     }
   }
 
@@ -589,7 +699,7 @@ class StorageService {
     }
 
     try {
-      await setDoc(doc(db, 'settings', key), { value });
+      await setDoc(doc(db, 'settings', key), cleanForFirestore({ value }));
     } catch (e) {
       console.warn('Settings cloud sync note:', e);
     }
@@ -626,3 +736,4 @@ class StorageService {
 }
 
 export const dbService = new StorageService();
+
