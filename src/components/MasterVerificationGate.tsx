@@ -16,7 +16,8 @@ import {
   Sparkles,
   Shield,
   Eye,
-  EyeOff
+  EyeOff,
+  LogIn
 } from 'lucide-react';
 import { UserSession } from '../types';
 import { authService, maskEmail, MASTER_GOOGLE_EMAIL, MASTER_GOOGLE_NAME } from '../utils/authService';
@@ -39,6 +40,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notificationMsg, setNotificationMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [infoMsg, setInfoMsg] = useState('');
 
   // Subscribe to real-time auth changes when user is in pending verification state
   useEffect(() => {
@@ -56,10 +58,11 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
   const handleEmailLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+    setInfoMsg('');
     const cleanEmail = inputEmail.trim().toLowerCase();
 
     if (!cleanEmail || !cleanEmail.includes('@') || cleanEmail.length < 5) {
-      setErrorMsg('Please enter a valid email address.');
+      setErrorMsg('Pakilagay po ang inyong tamang email address.');
       return;
     }
 
@@ -73,15 +76,16 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
       );
       onUserAuthenticated(session);
       setIsSubmitting(false);
-    }, 400);
+    }, 300);
   };
 
-  // Master Admin Passcode / One-Tap Login
+  // Master Admin Passcode / Direct PIN
   const handleMasterPasscodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+    setInfoMsg('');
     if (!masterPasscode) {
-      setErrorMsg('Please enter the Master Passcode or PIN.');
+      setErrorMsg('Pakilagay po ang Master Passcode o PIN.');
       return;
     }
 
@@ -91,7 +95,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
       if (session) {
         onUserAuthenticated(session);
       } else {
-        setErrorMsg('Invalid Master Passcode. Please check or use Email Sign-in.');
+        setErrorMsg('Invalid Master Passcode. Subukan ang default passcode (e.g. ien2026) o gamitin ang Email Log In.');
       }
       setIsSubmitting(false);
     }, 300);
@@ -103,21 +107,28 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
       const session = authService.loginWithMasterAccount();
       onUserAuthenticated(session);
       setIsSubmitting(false);
-    }, 300);
+    }, 250);
   };
 
-  // Firebase Google Popup Sign-in
+  // Google Sign-in Handler with graceful fallback
   const handleFirebaseGoogleLogin = async () => {
     setIsSubmitting(true);
     setErrorMsg('');
+    setInfoMsg('');
     try {
       const session = await authService.loginWithFirebasePopup();
       if (session) {
         onUserAuthenticated(session);
+        return;
       }
     } catch (e: any) {
-      console.warn('Google sign-in notice:', e);
-      setErrorMsg('Google Sign-in was cancelled or encountered an issue. You can use Email Log In directly.');
+      console.warn('Google popup note (iframe constraint):', e);
+      // Seamless graceful fallback: encourage email entry without harsh red error
+      setInfoMsg('Dahil naka-iframe ang preview, mangyaring ilagay ang iyong email address sa itaas at i-click ang "Log In & Open Database".');
+      const emailInputElem = document.getElementById('login-email-input');
+      if (emailInputElem) {
+        emailInputElem.focus();
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -135,9 +146,9 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
       };
       authService.setCurrentUser(upgraded);
       onUserAuthenticated(upgraded);
-      setNotificationMsg('Verification approved! Database unlocked.');
+      setNotificationMsg('Approved na po ang inyong verification! Nabuksan na ang database.');
     } else {
-      setNotificationMsg('Verification still pending master administrator approval.');
+      setNotificationMsg('Kasalukuyan pang naghihintay ng pag-apruba mula sa Master Administrator.');
       setTimeout(() => setNotificationMsg(''), 4000);
     }
   };
@@ -145,7 +156,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
   const handleSendUpdatedReason = () => {
     if (!currentUser || !requestReason) return;
     authService.submitAccessRequest(currentUser.email, currentUser.name, requestReason, currentUser.picture);
-    setNotificationMsg('Updated access reason submitted to Master Administrator!');
+    setNotificationMsg('Naipadala na ang inyong access reason sa Master Administrator!');
     setTimeout(() => setNotificationMsg(''), 3000);
   };
 
@@ -173,7 +184,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
               </div>
               <div>
                 <h2 className="text-base font-extrabold text-white">
-                  {isRejected ? 'Access Request Declined' : 'Pending Database Verification'}
+                  {isRejected ? 'Access Request Declined' : 'Naghihintay ng Verification'}
                 </h2>
                 <p className="text-xs text-slate-400">
                   IEN REALTY INC. Corporate Vault Security
@@ -212,31 +223,31 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
           <div className="bg-amber-950/40 border border-amber-500/30 rounded-2xl p-4 mb-5 text-xs space-y-2.5">
             <div className="flex items-center gap-2 text-amber-300 font-bold">
               <Clock className="w-4 h-4 shrink-0 text-amber-400 animate-spin" />
-              <span>Master Administrator Approval Required</span>
+              <span>Kailangan ng Master Admin Verification</span>
             </div>
             <p className="text-slate-300 leading-relaxed">
-              Ang access request para sa email na ito ay naipadala na sa <strong>Master Database Administrator</strong>.
+              Ang inyong access request ay naipadala na sa <strong>Master Database Administrator</strong>.
             </p>
             <div className="p-2.5 bg-slate-900/90 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
-              <span className="font-medium text-slate-300">Target Authority:</span>
+              <span className="font-medium text-slate-300">Security Authority:</span>
               <span className="font-bold text-amber-400 font-mono">Master Administrator (Protected)</span>
             </div>
             <p className="text-slate-400 text-[11px] leading-relaxed">
-              Kapag na-verify at na-approve na ng Master Admin sa kanyang dashboard, <strong>awtomatikong bubukas</strong> ang portal sa iyong screen sa real-time nang hindi mo kailangang mag-refresh.
+              Kapag na-verify at na-approve na ng Master Admin sa kanyang Gatekeeper dashboard, <strong>awtomatikong magbubukas</strong> ang database sa inyong screen nang hindi ninyo kailangang mag-refresh.
             </p>
           </div>
 
           {/* Optional reason / department note */}
           <div className="mb-5">
             <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Add / Update Reason for Database Access:
+              Dahilan / Departamento para sa Database Access:
             </label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={requestReason}
                 onChange={(e) => setRequestReason(e.target.value)}
-                placeholder="e.g., Compliance Auditor / BIR Form 2303 Review"
+                placeholder="Hal. Internal Audit / BIR 2303 Review"
                 className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-400"
               />
               <button
@@ -244,7 +255,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
                 onClick={handleSendUpdatedReason}
                 className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-xl border border-slate-700 transition"
               >
-                Send
+                Ipadala
               </button>
             </div>
           </div>
@@ -264,7 +275,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
               className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />
-              <span>Check Verification Status</span>
+              <span>Suriin ang Status ng Verification</span>
             </button>
 
             <div className="flex flex-col sm:flex-row gap-2 pt-1">
@@ -277,7 +288,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
                 className="flex-1 py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center justify-center gap-2"
               >
                 <LogOut className="w-4 h-4 text-slate-400" />
-                <span>Log Out / Use Different Email</span>
+                <span>Mag-log in ng ibang Email</span>
               </button>
 
               <button
@@ -331,6 +342,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
             onClick={() => {
               setAuthTab('email_login');
               setErrorMsg('');
+              setInfoMsg('');
             }}
             className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
               authTab === 'email_login'
@@ -347,6 +359,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
             onClick={() => {
               setAuthTab('master_pass');
               setErrorMsg('');
+              setInfoMsg('');
             }}
             className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
               authTab === 'master_pass'
@@ -359,6 +372,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
           </button>
         </div>
 
+        {/* Error message */}
         {errorMsg && (
           <div className="mb-4 p-3 bg-rose-950/60 border border-rose-500/40 rounded-xl text-xs text-rose-300 flex items-center gap-2 animate-fade-in">
             <AlertCircle className="w-4 h-4 shrink-0" />
@@ -366,22 +380,31 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
           </div>
         )}
 
-        {/* TAB 1: Standard Email Log In */}
+        {/* Informational message */}
+        {infoMsg && (
+          <div className="mb-4 p-3 bg-sky-950/70 border border-sky-500/40 rounded-xl text-xs text-sky-200 flex items-center gap-2 animate-fade-in">
+            <Mail className="w-4 h-4 shrink-0 text-sky-400" />
+            <span>{infoMsg}</span>
+          </div>
+        )}
+
+        {/* TAB 1: Standard Direct Email Log In */}
         {authTab === 'email_login' && (
           <div className="space-y-4">
             <form onSubmit={handleEmailLoginSubmit} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                  Your Email Address <span className="text-rose-400">*</span>
+                  Email Address <span className="text-rose-400">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
+                    id="login-email-input"
                     type="email"
                     required
                     value={inputEmail}
                     onChange={(e) => setInputEmail(e.target.value)}
-                    placeholder="e.g. staff.compliance@company.com"
+                    placeholder="Hal. humanresource.iengoc@gmail.com o staff@company.com"
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
                   />
                 </div>
@@ -389,26 +412,26 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                  Full Name / Department (Optional)
+                  Pangalan / Departamento (Optional)
                 </label>
                 <input
                   type="text"
                   value={inputName}
                   onChange={(e) => setInputName(e.target.value)}
-                  placeholder="e.g. Maria Santos (Internal Auditor)"
+                  placeholder="Hal. HR Department / Auditor"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                  Purpose / Reason for Database Access (Optional)
+                  Dahilan para sa Database Access (Optional)
                 </label>
                 <input
                   type="text"
                   value={requestReason}
                   onChange={(e) => setRequestReason(e.target.value)}
-                  placeholder="e.g. PCAB & BIR 2303 compliance verification"
+                  placeholder="Hal. Compliance & Contract Verification"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400"
                 />
               </div>
@@ -418,49 +441,36 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
                 disabled={isSubmitting}
                 className="w-full py-3 bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-400 hover:to-sky-500 active:from-sky-600 text-white font-extrabold text-xs sm:text-sm rounded-xl transition shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2"
               >
-                <UserCheck className="w-4 h-4" />
-                <span>Log In & Request Database Access</span>
+                <LogIn className="w-4 h-4" />
+                <span>Log In & Open Database</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
 
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-800" />
-              </div>
-              <div className="relative flex justify-center text-[10px] uppercase">
-                <span className="bg-slate-900 px-3 text-slate-500 font-semibold tracking-wider">
-                  Or Google Authentication
-                </span>
-              </div>
-            </div>
+            <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleQuickMasterLogin}
+                className="text-xs text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1 transition"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Quick Master Owner Access</span>
+              </button>
 
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={handleFirebaseGoogleLogin}
-              className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center gap-2.5"
-            >
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-              <span>Sign in with Google Account</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleFirebaseGoogleLogin}
+                className="text-xs text-slate-400 hover:text-slate-200 transition flex items-center gap-1"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+                <span>Google Sign-in</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -478,14 +488,14 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
                 </span>
               </div>
               <p className="text-slate-300 text-[11px] leading-relaxed">
-                Tanging ang authorized Master Owner lamang ang may access sa Gatekeeper controls at database verification.
+                Tanging ang authorized Master Owner lamang ang may access sa Gatekeeper controls at database verification. Nananatiling nakatago ang master email.
               </p>
             </div>
 
             <form onSubmit={handleMasterPasscodeSubmit} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                  Master Passcode or PIN
+                  Master Passcode o PIN
                 </label>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -493,7 +503,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
                     type={showMasterPass ? 'text' : 'password'}
                     value={masterPasscode}
                     onChange={(e) => setMasterPasscode(e.target.value)}
-                    placeholder="Enter Master Passcode (e.g. ien2026)"
+                    placeholder="Ilagay ang Passcode (e.g. ien2026)"
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-10 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
                   />
                   <button
@@ -512,7 +522,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
                 className="w-full py-3 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-extrabold text-xs sm:text-sm rounded-xl transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
               >
                 <ShieldCheck className="w-4 h-4" />
-                <span>Verify & Open Master Vault</span>
+                <span>Buksan ang Master Vault</span>
               </button>
             </form>
 
@@ -523,7 +533,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
                 className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center justify-center gap-2"
               >
                 <KeyRound className="w-3.5 h-3.5" />
-                <span>1-Click Owner Master Bypass</span>
+                <span>1-Click Owner Master Login</span>
               </button>
             </div>
           </div>
@@ -532,7 +542,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
         {/* Security Footer Notice */}
         <div className="mt-6 pt-4 border-t border-slate-800 text-center">
           <p className="text-[10px] text-slate-500 leading-relaxed">
-            Strict Database Verification Active &bull; Master Email is protected and audited under IEN Realty Inc. privacy guidelines.
+            Strict Database Verification Active &bull; Master Email is protected and masked under IEN Realty Inc. privacy protocols.
           </p>
         </div>
 
