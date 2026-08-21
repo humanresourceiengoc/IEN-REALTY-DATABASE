@@ -369,7 +369,7 @@ export const MasterVerificationGate: React.FC<MasterVerificationGateProps> = ({
                   required
                   value={inputPassword}
                   onChange={(e) => setInputPassword(e.target.value)}
-                  placeholder="Enter your password (e.g. ien2026 for HR)"
+                  placeholder="Enter your account password"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-10 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
                 />
                 <button

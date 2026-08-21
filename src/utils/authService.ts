@@ -5,7 +5,7 @@ import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged, User as Fire
 
 export const MASTER_GOOGLE_EMAIL = 'humanresource.iengoc@gmail.com';
 export const MASTER_GOOGLE_NAME = 'IEN Realty Human Resource (Master Admin)';
-export const DEFAULT_MASTER_PASS = 'ien2026';
+export const DEFAULT_MASTER_PASS = 'IEN082021';
 
 /**
  * Mask an email address to keep it hidden and secure in UI (e.g. h**********c@gmail.com)
@@ -266,9 +266,15 @@ class AuthService {
     }
 
     if (isMaster) {
-      // Master HR password verification
+      // Master HR password verification (IEN082021)
       const masterPass = localStorage.getItem('ien_auth_master_password') || DEFAULT_MASTER_PASS;
-      if (cleanPass !== masterPass && cleanPass !== DEFAULT_MASTER_PASS && cleanPass !== 'admin' && cleanPass !== 'ienrealty') {
+      const cleanUpper = cleanPass.toUpperCase();
+      if (
+        cleanPass !== masterPass &&
+        cleanPass !== DEFAULT_MASTER_PASS &&
+        cleanUpper !== 'IEN082021' &&
+        cleanPass !== 'ien082021'
+      ) {
         return { valid: false, error: 'Invalid Human Resource Master Password. Please enter the correct password.' };
       }
       return { valid: true };
