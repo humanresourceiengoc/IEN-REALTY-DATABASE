@@ -32,6 +32,8 @@ import {
 import { DocumentItem, FolderDefinition, DocumentCopyType } from '../types';
 import { addMonthsToDate, addYearsToDate, getTodayDateString } from '../utils/dateUtils';
 import { generateSamplePdfDataUri, generateSamplePageImage } from '../data/seedData';
+import { DocumentRenderer } from './DocumentRenderer';
+import { renderPdfToPageImages } from '../utils/pdfRenderer';
 
 interface FileUploadModalProps {
   isOpen: boolean;
@@ -127,10 +129,9 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
     if (files.length === 1) {
       const file = files[0];
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         const base64 = reader.result as string;
         setFileData(base64);
-        setPages((prev) => (prev.length === 0 ? [base64] : [base64, ...prev.slice(1)]));
         setOriginalFileName(file.name);
         if (!fileName || fileName.trim() === '') {
           const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
@@ -139,6 +140,25 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
         setFileType(file.type || 'application/pdf');
         setFileSize(file.size);
         setErrorMsg('');
+
+        // If file is a PDF, render all pages to canvas high-res data URLs
+        const isPdfFile = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf') || base64.startsWith('data:application/pdf');
+        if (isPdfFile) {
+          try {
+            const extracted = await renderPdfToPageImages(base64, 2.0);
+            if (extracted && extracted.length > 0) {
+              const pageUrls = extracted.map((p) => p.dataUrl);
+              setPages(pageUrls);
+              setActivePageIndex(0);
+              return;
+            }
+          } catch (pdfErr) {
+            console.warn('Direct PDF extraction fallback:', pdfErr);
+          }
+        }
+
+        // Fallback for image / other files
+        setPages((prev) => (prev.length === 0 ? [base64] : [base64, ...prev.slice(1)]));
       };
       reader.readAsDataURL(file);
     } else {
@@ -908,43 +928,23 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
             </div>
 
             {/* Preview Viewport */}
-            <div className="flex-1 bg-slate-950 p-3 sm:p-4 flex items-center justify-center overflow-auto relative">
+            <div className="flex-1 bg-slate-950 p-2 sm:p-3 flex items-center justify-center overflow-auto relative">
               {currentDisplayData ? (
-                isCurrentImage ? (
-                  <div className="flex items-center justify-center w-full h-full overflow-auto">
-                    <img
-                      src={currentDisplayData}
-                      alt={fileName || `Page ${activePageIndex + 1}`}
-                      className="max-h-full max-w-full object-contain rounded-xl shadow-2xl border border-slate-800 bg-white"
-                      style={{
-                        transform: `scale(${previewZoom / 100}) rotate(${previewRotation}deg)`,
-                        transformOrigin: 'center center',
-                        transition: 'transform 0.15s ease',
-                      }}
-                    />
-                  </div>
-                ) : isCurrentPdf ? (
-                  <div className="w-full h-full rounded-xl overflow-hidden shadow-2xl border border-slate-800 bg-white flex flex-col">
-                    <iframe
-                      src={`${currentDisplayData}#toolbar=1&navpanes=0&scrollbar=1&zoom=${previewZoom}`}
-                      title={fileName || 'File Preview'}
-                      className="w-full flex-1 border-0"
-                      style={{
-                        transform: `scale(${previewZoom / 100}) rotate(${previewRotation}deg)`,
-                        transformOrigin: 'center center',
-                        transition: 'transform 0.15s ease',
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="text-center p-8 bg-slate-900 rounded-2xl border border-slate-800 max-w-sm">
-                    <FileText className="w-12 h-12 text-sky-400 mx-auto mb-2" />
-                    <p className="font-bold text-white text-xs">{originalFileName}</p>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      {(fileSize / 1024).toFixed(1)} KB &bull; Document ready to attach.
-                    </p>
-                  </div>
-                )
+                <DocumentRenderer
+                  fileData={fileData || currentDisplayData}
+                  pages={pages}
+                  activePageIndex={activePageIndex}
+                  zoom={previewZoom}
+                  rotation={previewRotation}
+                  fileName={fileName || originalFileName || 'File Preview'}
+                  onTotalPagesChange={(count, pageDataUrls) => {
+                    if (pages.length <= 1 && count > 1) {
+                      setPages(pageDataUrls);
+                      setActivePageIndex(0);
+                    }
+                  }}
+                  onActivePageChange={(idx) => setActivePageIndex(idx)}
+                />
               ) : (
                 /* Empty Preview Placeholder Guide */
                 <div className="text-center p-8 border-2 border-dashed border-slate-800 rounded-2xl max-w-md">

@@ -34,6 +34,7 @@ import {
 import { DocumentItem, FolderDefinition } from '../types';
 import { calculateDaysRemaining, formatDateDisplay, formatRemainingDaysText, getUrgencySeverity } from '../utils/dateUtils';
 import { TRANSMITTAL_STATUS_CONFIG } from '../utils/transmittalUtils';
+import { DocumentRenderer } from './DocumentRenderer';
 
 interface PdfViewerModalProps {
   isOpen: boolean;
@@ -363,90 +364,20 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
           <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden relative">
             
             {/* Viewport content */}
-            <div className="flex-1 p-4 overflow-auto flex items-center justify-center">
-              {viewMode === 'continuous' && pagesList.length > 1 ? (
-                /* Continuous Multi-Page Vertical Scroll */
-                <div className="w-full max-w-4xl space-y-6 py-4 flex flex-col items-center">
-                  {pagesList.map((pageData, pIdx) => (
-                    <div
-                      key={pIdx}
-                      className="w-full bg-white rounded-2xl p-4 shadow-2xl border border-slate-800 text-slate-900 flex flex-col items-center"
-                    >
-                      <div className="w-full flex items-center justify-between pb-2 mb-2 border-b border-slate-200 text-xs font-bold text-slate-500">
-                        <span className="flex items-center gap-1.5 text-sky-700">
-                          <Layers className="w-3.5 h-3.5" /> Page {pIdx + 1} of {pagesList.length}
-                        </span>
-                        <span className="text-[11px] font-mono text-slate-400">{doc.fileName}</span>
-                      </div>
-                      
-                      {pageData.startsWith('data:application/pdf') ? (
-                        <iframe
-                          src={`${pageData}#toolbar=1&navpanes=0&scrollbar=1&zoom=${zoomLevel}`}
-                          title={`Page ${pIdx + 1}`}
-                          className="w-full h-[700px] border-0 rounded-xl"
-                          style={{
-                            transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
-                            transformOrigin: 'center center',
-                          }}
-                        />
-                      ) : (
-                        <img
-                          src={pageData}
-                          alt={`Page ${pIdx + 1}`}
-                          className="max-w-full max-h-[85vh] object-contain rounded-xl"
-                          style={{
-                            transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
-                            transformOrigin: 'center center',
-                          }}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                /* Single Page Carousel Mode */
-                <div className="w-full h-full flex items-center justify-center overflow-auto">
-                  {isCurrentPageImage ? (
-                    <div className="flex items-center justify-center w-full h-full overflow-auto">
-                      <img
-                        src={currentPageData}
-                        alt={`${doc.fileName} - Page ${activePageIndex + 1}`}
-                        className="max-h-full max-w-full object-contain rounded-xl shadow-2xl border border-slate-800 bg-white"
-                        style={{
-                          transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
-                          transformOrigin: 'center center',
-                          transition: 'transform 0.15s ease',
-                        }}
-                      />
-                    </div>
-                  ) : isCurrentPagePdf ? (
-                    <iframe
-                      src={`${currentPageData}#toolbar=1&navpanes=0&scrollbar=1&zoom=${zoomLevel}`}
-                      title={`${doc.fileName} - Page ${activePageIndex + 1}`}
-                      className="w-full h-full rounded-xl bg-white border border-slate-800 shadow-2xl"
-                      style={{
-                        transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
-                        transformOrigin: 'center center',
-                        transition: 'transform 0.15s ease',
-                      }}
-                    />
-                  ) : (
-                    <div className="text-center p-8 bg-slate-900 rounded-2xl border border-slate-800 max-w-md">
-                      <FileText className="w-16 h-16 text-sky-500 mx-auto mb-3" />
-                      <p className="font-bold text-slate-200 mb-1">{doc.fileName}</p>
-                      <p className="text-xs text-slate-400 mb-4">
-                        Document format: {doc.fileType}. Click below to download and view on your machine.
-                      </p>
-                      <button
-                        onClick={handleDownload}
-                        className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-xl text-xs"
-                      >
-                        Download File
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+            <div className="flex-1 p-2 sm:p-4 overflow-auto flex items-center justify-center">
+              <DocumentRenderer
+                fileData={doc.fileData}
+                pages={pagesList}
+                activePageIndex={activePageIndex}
+                zoom={zoomLevel}
+                rotation={rotation}
+                viewMode={viewMode}
+                fileName={doc.fileName}
+                onTotalPagesChange={(count, pageDataUrls) => {
+                  // If extra pages were extracted by PDF.js, update parent state
+                }}
+                onActivePageChange={(idx) => setActivePageIndex(idx)}
+              />
             </div>
 
             {/* Bottom Multi-Page Thumbnail Strip */}
