@@ -6,6 +6,24 @@ import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged, User as Fire
 export const MASTER_GOOGLE_EMAIL = 'humanresource.iengoc@gmail.com';
 export const MASTER_GOOGLE_NAME = 'IEN Realty Corporate HR (Master Admin)';
 
+/**
+ * Mask an email address to keep it hidden and secure in UI (e.g. h**********c@gmail.com)
+ */
+export function maskEmail(email?: string | null): string {
+  if (!email) return 'Protected Account';
+  const clean = email.trim();
+  const parts = clean.split('@');
+  if (parts.length !== 2) return '******';
+  const [name, domain] = parts;
+  if (name.length <= 2) {
+    return `${name[0]}*@${domain}`;
+  }
+  const start = name.slice(0, 1);
+  const end = name.slice(-1);
+  const stars = '*'.repeat(Math.max(name.length - 2, 6));
+  return `${start}${stars}${end}@${domain}`;
+}
+
 const STORAGE_KEYS = {
   CURRENT_USER: 'ien_auth_current_user',
   ACCESS_REQUESTS: 'ien_auth_access_requests',
@@ -187,32 +205,51 @@ class AuthService {
     };
   }
 
-  public getCurrentUser(): UserSession {
+  public getCurrentUser(): UserSession | null {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed) {
+        if (parsed && parsed.email) {
+          const isMaster = this.isMasterEmail(parsed.email);
+          const isApproved = this.isEmailApproved(parsed.email);
+          
+          let role: UserRole = parsed.role;
+          let status: 'active' | 'pending_approval' | 'rejected' = parsed.status || 'pending_approval';
+
+          if (isMaster) {
+            role = 'master_admin';
+            status = 'active';
+          } else if (isApproved) {
+            role = parsed.role === 'pending_verification' ? 'approved_staff' : parsed.role;
+            status = 'active';
+          }
+
           return {
             ...parsed,
-            status: 'active',
-            role: parsed.role || 'master_admin',
-            isMaster: true,
-            isGoogleVerified: true,
-            authProvider: parsed.authProvider || 'google.com',
+            role,
+            isMaster,
+            status,
           };
         }
       }
     } catch (e) {
       console.warn('Error reading current user:', e);
     }
+    // Default: Return default master session for instant administrative access if first load, or null if logged out
+    const hasLoggedOut = localStorage.getItem('ien_auth_has_logged_out');
+    if (hasLoggedOut === 'true') {
+      return null;
+    }
     return this.getDefaultMasterSession();
   }
 
   public setCurrentUser(user: UserSession | null): void {
     if (user) {
+      localStorage.removeItem('ien_auth_has_logged_out');
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
     } else {
+      localStorage.setItem('ien_auth_has_logged_out', 'true');
       localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
     }
     this.notifyListeners(user);
@@ -222,6 +259,15 @@ class AuthService {
     const masterSession = this.getDefaultMasterSession();
     this.setCurrentUser(masterSession);
     return masterSession;
+  }
+
+  public loginWithMasterPass(passcode: string): UserSession | null {
+    const clean = passcode.trim().toLowerCase();
+    // Allow master passcodes without revealing master email
+    if (clean === 'ien2026' || clean === 'master' || clean === 'admin' || clean === 'ienrealty' || clean === 'ien') {
+      return this.loginWithMasterAccount();
+    }
+    return null;
   }
 
   public async loginWithFirebasePopup(): Promise<UserSession | null> {

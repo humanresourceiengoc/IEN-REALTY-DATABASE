@@ -342,6 +342,21 @@ export default function App() {
     );
   }
 
+  // If user is not authenticated or is awaiting Master Admin Verification
+  if (!currentUser || currentUser.status === 'pending_approval' || currentUser.status === 'rejected') {
+    return (
+      <MasterVerificationGate
+        currentUser={currentUser}
+        onUserAuthenticated={(session) => {
+          setCurrentUser(session);
+          if (session && session.status === 'active') {
+            showToast(`Welcome! Database access verified & unlocked.`, 'success');
+          }
+        }}
+      />
+    );
+  }
+
   // Active Application Workspace (Multi-Device Live Sync Enabled)
   return (
     <div className="min-h-screen bg-slate-100/90 text-slate-900 font-sans antialiased selection:bg-sky-400 selection:text-slate-950 overflow-x-hidden">
@@ -384,7 +399,9 @@ export default function App() {
         onOpenSyncModal={() => setIsSyncModalOpen(true)}
         onOpenVerificationModal={() => setIsVerificationModalOpen(true)}
         onLogout={() => {
-          showToast('Portal reset to default active session.', 'info');
+          authService.logout();
+          setCurrentUser(null);
+          showToast('Database locked. Signed out successfully.', 'info');
         }}
         onUpdateAppLogo={handleUpdateAppLogo}
         appLogo={appLogo}

@@ -28,7 +28,7 @@ import {
 import { ClientProfile, DeadlineAlert, UserSession, CloudSyncState } from '../types';
 import { formatDateDisplay } from '../utils/dateUtils';
 import { notificationService } from '../utils/notificationService';
-import { MASTER_GOOGLE_EMAIL } from '../utils/authService';
+import { MASTER_GOOGLE_EMAIL, maskEmail } from '../utils/authService';
 
 interface HeaderProps {
   clients: ClientProfile[];
@@ -339,6 +339,26 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">Add Client</span>
             </button>
 
+            {/* Gatekeeper / User Access Verification Center */}
+            <button
+              id="header-security-gatekeeper-btn"
+              onClick={onOpenSecurityModal}
+              className={`relative px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shrink-0 ${
+                pendingRequestsCount > 0
+                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20 animate-pulse'
+                  : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/30'
+              }`}
+              title="Gatekeeper: Approve / Verify Users Accessing Database"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden md:inline">Gatekeeper</span>
+              {pendingRequestsCount > 0 && (
+                <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-600 text-[9px] font-extrabold text-white">
+                  {pendingRequestsCount}
+                </span>
+              )}
+            </button>
+
             {/* Notification & Deadline Alert Bell */}
             <button
               id="header-alert-bell-btn"
@@ -385,14 +405,39 @@ export const Header: React.FC<HeaderProps> = ({
                       </span>
                       <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3" />
-                        <span>Multi-Device Sync</span>
+                        <span>Live Protected</span>
                       </span>
                     </div>
                     <p className="text-xs font-bold text-white">IEN Realty Inc. Corporate Database</p>
-                    <p className="text-[11px] text-sky-300 font-mono">humanresource.iengoc@gmail.com</p>
+                    <p className="text-[11px] text-sky-300 font-mono flex items-center gap-1 mt-0.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>{maskEmail(currentUser?.email || MASTER_GOOGLE_EMAIL)} (Protected)</span>
+                    </p>
                   </div>
 
                   <div className="space-y-1.5 pt-2.5">
+                    {/* Security Gatekeeper Verification */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onOpenSecurityModal();
+                      }}
+                      className="w-full px-3 py-2 text-xs text-left font-bold text-amber-300 hover:bg-slate-800 rounded-xl transition flex items-center justify-between border border-amber-500/20 bg-amber-950/20"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-amber-400" />
+                        <span>Gatekeeper Verification Center</span>
+                      </span>
+                      {pendingRequestsCount > 0 ? (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-extrabold">
+                          {pendingRequestsCount}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-mono">Manage</span>
+                      )}
+                    </button>
+
                     {/* Cloud Firestore Sync Center */}
                     <button
                       type="button"
@@ -439,6 +484,22 @@ export const Header: React.FC<HeaderProps> = ({
                         <span>Audit Compliance Matrix</span>
                       </span>
                       <span className="text-[10px] text-slate-400 font-mono">Print</span>
+                    </button>
+
+                    {/* Sign Out / Lock Database */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onLogout();
+                      }}
+                      className="w-full px-3 py-2 text-xs text-left font-bold text-rose-300 hover:bg-rose-950/40 rounded-xl transition flex items-center justify-between border border-rose-500/20 bg-rose-950/10"
+                    >
+                      <span className="flex items-center gap-2">
+                        <LogOut className="w-4 h-4 text-rose-400" />
+                        <span>Lock Database / Sign Out</span>
+                      </span>
+                      <span className="text-[10px] text-rose-400 font-mono">Exit</span>
                     </button>
                   </div>
                 </div>

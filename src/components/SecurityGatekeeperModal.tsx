@@ -18,7 +18,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { AccessRequest, UserRole, UserSession } from '../types';
-import { authService, MASTER_GOOGLE_EMAIL } from '../utils/authService';
+import { authService, maskEmail, MASTER_GOOGLE_EMAIL } from '../utils/authService';
 
 interface SecurityGatekeeperModalProps {
   currentUser: UserSession;
@@ -43,6 +43,11 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
 
   useEffect(() => {
     loadData();
+    const unsub = authService.subscribeToRequests((newReqs) => {
+      setRequests(newReqs);
+      setApprovedEmails(authService.getApprovedEmails());
+    });
+    return () => unsub();
   }, []);
 
   const pendingRequests = requests.filter((r) => r.status === 'pending');
@@ -51,8 +56,8 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
   const handleApprove = (requestId: string, role: UserRole = 'approved_staff') => {
     authService.approveAccessRequest(requestId, role);
     loadData();
-    setActionSuccess('Access request approved! User is now verified.');
-    setTimeout(() => setActionSuccess(''), 3000);
+    setActionSuccess('Access request approved! User is now verified and can access the database.');
+    setTimeout(() => setActionSuccess(''), 3500);
   };
 
   const handleReject = (requestId: string) => {
@@ -109,11 +114,11 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
                   Master Gatekeeper & Verification Center
                 </h3>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                  Master Owner Controls
+                  Master Controls
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Master Account: <span className="text-sky-300 font-mono font-medium">{MASTER_GOOGLE_EMAIL}</span>
+                Master Security Authority: <span className="text-sky-300 font-mono font-medium">{maskEmail(MASTER_GOOGLE_EMAIL)} (Hidden)</span>
               </p>
             </div>
           </div>
@@ -123,7 +128,7 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
               onClick={onClose}
               className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center gap-1.5"
             >
-              <span>&larr; Back</span>
+              <span>&larr; Back to Database</span>
             </button>
             <button
               onClick={onClose}
@@ -208,7 +213,7 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
                           className="w-10 h-10 rounded-xl object-cover border border-slate-700"
                         />
                         <div>
-                          <p className="text-xs font-bold text-white">{req.name}</p>
+                          <p className="text-xs font-bold text-white">{req.name || 'Portal User'}</p>
                           <p className="text-[11px] text-sky-400 font-mono">{req.email}</p>
                           <p className="text-[10px] text-slate-500 mt-0.5">
                             Requested on: {new Date(req.requestedAt).toLocaleString()}
@@ -217,14 +222,14 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
                       </div>
 
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
-                        Awaiting Approval
+                        Awaiting Verification
                       </span>
                     </div>
 
                     {req.reason && (
                       <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-xs">
                         <span className="text-[10px] font-semibold uppercase text-slate-400 block mb-0.5">
-                          Purpose / Dept Note:
+                          Purpose / Department Note:
                         </span>
                         <p className="text-slate-200">{req.reason}</p>
                       </div>
@@ -237,7 +242,7 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
                         className="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 rounded-xl text-xs font-semibold transition flex items-center gap-1"
                       >
                         <X className="w-3.5 h-3.5" />
-                        <span>Decline</span>
+                        <span>Decline Access</span>
                       </button>
 
                       <button
@@ -246,7 +251,7 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
                         className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5"
                       >
                         <Check className="w-3.5 h-3.5" />
-                        <span>Approve & Verify Access</span>
+                        <span>Approve & Grant Database Access</span>
                       </button>
                     </div>
                   </div>
@@ -256,7 +261,7 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
                   <ShieldCheck className="w-10 h-10 text-emerald-400 mx-auto mb-2 opacity-80" />
                   <p className="text-sm font-bold text-slate-200">No Pending Access Requests</p>
                   <p className="text-xs mt-1 text-slate-400">
-                    All incoming access requests have been reviewed and verified.
+                    Lahat ng papasok na request ay makikita mo rito at ikaw ang mag-aapruba kung makakapasok sila sa database.
                   </p>
                 </div>
               )}
@@ -335,7 +340,7 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
                           </div>
                           <div className="min-w-0">
                             <p className="text-xs font-bold text-white truncate flex items-center gap-1.5">
-                              <span>{email}</span>
+                              <span>{isMaster ? 'Master Administrator (Protected)' : email}</span>
                               {isMaster && (
                                 <span className="text-[10px] font-extrabold px-2 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
                                   Master Owner
@@ -344,7 +349,7 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
                             </p>
                             <p className="text-[11px] text-emerald-400 flex items-center gap-1 mt-0.5">
                               <CheckCircle2 className="w-3 h-3" />
-                              <span>{isMaster ? 'Full Root Vault Ownership' : 'Verified Staff Access'}</span>
+                              <span>{isMaster ? 'Full Root Database Ownership' : 'Verified Staff Access'}</span>
                             </p>
                           </div>
                         </div>
@@ -357,7 +362,7 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
                             title="Revoke Verification"
                           >
                             <Trash2 className="w-3 h-3" />
-                            <span>Revoke</span>
+                            <span>Revoke Access</span>
                           </button>
                         )}
                       </div>
@@ -373,21 +378,21 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
               <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
                 <h4 className="text-xs font-extrabold text-white flex items-center gap-1.5">
                   <UserPlus className="w-4 h-4 text-emerald-400" />
-                  Pre-Authorize a Google Account
+                  Pre-Authorize an Email Address
                 </h4>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Enter a Google email address to pre-approve their access. When this user logs in with this Google account, they will automatically bypass the pending gate and gain immediate entry.
+                  Enter an email address to pre-approve their access. When this user logs in with this email, they will automatically gain immediate entry without waiting for manual verification.
                 </p>
 
                 <form onSubmit={handleAddEmail} className="space-y-3 pt-1">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                      Google Email to Whitelist
+                      Email to Pre-Authorize
                     </label>
                     <input
                       type="email"
                       required
-                      placeholder="colleague@gmail.com"
+                      placeholder="staff.auditor@company.com"
                       value={newEmailInput}
                       onChange={(e) => setNewEmailInput(e.target.value)}
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400"
@@ -411,14 +416,14 @@ export const SecurityGatekeeperModal: React.FC<SecurityGatekeeperModalProps> = (
         {/* Footer */}
         <div className="pt-4 border-t border-slate-800 flex items-center justify-between shrink-0">
           <p className="text-[11px] text-slate-500">
-            Protected under Master Key: <span className="text-slate-400">{MASTER_GOOGLE_EMAIL}</span>
+            Security Control Active &bull; Master Email Protected
           </p>
           <button
             type="button"
             onClick={onClose}
             className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-1.5"
           >
-            <span>&larr; Back to Portal</span>
+            <span>&larr; Back to Database</span>
           </button>
         </div>
 

@@ -13,7 +13,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { UserSession } from '../types';
-import { MASTER_GOOGLE_EMAIL, MASTER_GOOGLE_NAME } from '../utils/authService';
+import { MASTER_GOOGLE_EMAIL, MASTER_GOOGLE_NAME, maskEmail } from '../utils/authService';
 
 interface AccountVerificationModalProps {
   isOpen: boolean;
@@ -104,7 +104,7 @@ export const AccountVerificationModal: React.FC<AccountVerificationModalProps> =
                 <p className="text-sm font-bold text-white truncate">{currentUser.name}</p>
                 <p className="text-xs text-sky-300 font-mono truncate flex items-center gap-1">
                   <Mail className="w-3 h-3 shrink-0 text-sky-400" />
-                  <span>{currentUser.email}</span>
+                  <span>{isMaster ? `${maskEmail(currentUser.email)} (Master Email Protected)` : currentUser.email}</span>
                 </p>
                 <p className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" />
@@ -141,7 +141,7 @@ export const AccountVerificationModal: React.FC<AccountVerificationModalProps> =
                 <div>
                   <p className="font-bold text-white text-xs">Cryptographic Token & Email Matching</p>
                   <p className="text-[11px] text-slate-400 leading-relaxed mt-0.5">
-                    Kinukumpirma ng Firebase Auth kung ang email ay tumutugma sa master administrator: <code className="text-amber-300 bg-slate-900 px-1 py-0.5 rounded font-mono font-bold">{MASTER_GOOGLE_EMAIL}</code>.
+                    Kinukumpirma ng Firebase Auth kung ang email ay tumutugma sa master administrator: <code className="text-amber-300 bg-slate-900 px-1 py-0.5 rounded font-mono font-bold">{maskEmail(MASTER_GOOGLE_EMAIL)} (Protected)</code>.
                   </p>
                 </div>
               </div>
