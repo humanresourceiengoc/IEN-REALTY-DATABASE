@@ -217,21 +217,35 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
 
       {/* Grid of Client Cards */}
       {filteredClients.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
-          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4 text-slate-400">
-            <Building2 className="w-8 h-8" />
+        <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center shadow-sm">
+          <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+            <Building2 className="w-7 h-7" />
           </div>
-          <h3 className="text-base font-bold text-slate-800">No Clients Found</h3>
+          <h3 className="text-base font-bold text-slate-800">No Clients Matching Filter</h3>
           <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-            Try adjusting your search criteria or add a new client profile for IEN Realty Inc.
+            {statusFilter !== 'all' 
+              ? `There are currently no clients under the "${statusFilter}" status tab.`
+              : `No corporate records matching "${searchQuery}".`}
           </p>
-          <button
-            onClick={onOpenNewClientModal}
-            className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-sm transition"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            Add Client
-          </button>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => {
+                setStatusFilter('all');
+                setSearchQuery('');
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition"
+            >
+              <FolderOpen className="w-4 h-4 text-sky-400" />
+              Show All Clients ({clients.length})
+            </button>
+            <button
+              onClick={onOpenNewClientModal}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs transition shadow-sm"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              Add New Client
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

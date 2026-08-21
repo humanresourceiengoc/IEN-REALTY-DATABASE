@@ -133,13 +133,13 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 shadow-xl">
       {/* Top Main Bar */}
-      <div className="max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6">
-        <div className="flex items-center justify-between h-16 gap-2 lg:gap-4">
+      <div className="max-w-[1700px] mx-auto px-2.5 sm:px-4 lg:px-6">
+        <div className="flex items-center justify-between h-16 gap-2">
           
-          {/* Brand Logo & Master List Title */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          {/* Left: Brand Logo & Master List Title */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <div className="relative group cursor-pointer" onClick={() => setShowLogoModal(true)} title="Click to Change Company Logo">
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-sky-500/20 via-slate-800 to-sky-900/30 border border-sky-500/40 p-1.5 flex items-center justify-center shadow-lg shadow-sky-500/10 group-hover:border-sky-400 transition-all overflow-hidden">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-sky-500/20 via-slate-800 to-sky-900/30 border border-sky-500/40 p-1 flex items-center justify-center shadow-md shadow-sky-500/10 group-hover:border-sky-400 transition-all overflow-hidden">
                 {appLogo ? (
                   <img
                     src={appLogo}
@@ -150,11 +150,11 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                   />
                 ) : (
-                  <Building2 className="w-6 h-6 text-sky-400 group-hover:scale-110 transition-transform" />
+                  <Building2 className="w-5 h-5 text-sky-400 group-hover:scale-110 transition-transform" />
                 )}
               </div>
               <div className="absolute -bottom-1 -right-1 bg-slate-900 rounded-full p-0.5 border border-sky-500/50 shadow-xs group-hover:bg-sky-500 group-hover:text-white text-sky-400 transition">
-                <ImageIcon className="w-2.5 h-2.5" />
+                <ImageIcon className="w-2 h-2" />
               </div>
             </div>
 
@@ -163,30 +163,28 @@ export const Header: React.FC<HeaderProps> = ({
               className="cursor-pointer group select-none"
               title="Return to IEN Realty Inc. Database Master List"
             >
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold tracking-wider text-sm sm:text-base bg-gradient-to-r from-sky-200 via-sky-300 to-white bg-clip-text text-transparent group-hover:opacity-90">
-                    IEN REALTY INC.
-                  </span>
-                  <span className="hidden sm:inline-flex text-[9px] font-extrabold tracking-wider uppercase px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40 items-center gap-1">
-                    <Database className="w-2.5 h-2.5 text-sky-400" />
-                    MASTER LIST
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-400 font-medium hidden md:block leading-tight">
-                  Corporate Client Database & Compliance Management
-                </p>
+              <div className="flex items-center gap-1.5">
+                <span className="font-extrabold tracking-wider text-xs sm:text-sm lg:text-base bg-gradient-to-r from-sky-200 via-sky-300 to-white bg-clip-text text-transparent group-hover:opacity-90">
+                  IEN REALTY INC.
+                </span>
+                <span className="hidden sm:inline-flex text-[9px] font-extrabold tracking-wider uppercase px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40 items-center gap-1">
+                  <Database className="w-2.5 h-2.5 text-sky-400" />
+                  MASTER LIST
+                </span>
               </div>
+              <p className="text-[10px] text-slate-400 font-medium hidden xl:block leading-tight">
+                Corporate Client Database & Compliance Management
+              </p>
             </div>
           </div>
 
-          {/* Navigation View Switcher with Back Button */}
+          {/* Navigation View Switcher */}
           <div className="flex items-center gap-1.5 shrink-0">
             {currentView === 'client-detail' && (
               <button
                 onClick={onNavigateToDirectory}
                 id="header-back-to-master-list"
-                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold shadow-md shadow-sky-500/20 flex items-center gap-1 transition active:scale-95 group"
+                className="px-2.5 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold shadow-md shadow-sky-500/20 flex items-center gap-1 transition active:scale-95 group"
                 title="Go back to Database Master List"
               >
                 <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
@@ -194,7 +192,7 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            <div className="hidden lg:flex items-center bg-slate-800/90 p-0.5 rounded-xl border border-slate-700">
+            <div className="hidden md:flex items-center bg-slate-800/90 p-0.5 rounded-xl border border-slate-700">
               <button
                 onClick={onNavigateToDirectory}
                 id="header-nav-all-clients"
@@ -205,7 +203,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5" />
-                <span>Master List ({clients.length})</span>
+                <span>Clients ({clients.length})</span>
               </button>
 
               {selectedClient && (
@@ -219,14 +217,14 @@ export const Header: React.FC<HeaderProps> = ({
                   }`}
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  <span className="max-w-[110px] xl:max-w-[160px] truncate">{selectedClient.clientName}</span>
+                  <span className="max-w-[90px] lg:max-w-[140px] truncate">{selectedClient.clientName}</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Cloud: Firestore Real-Time Sync Status Pill */}
-          <div className="hidden xl:flex items-center shrink-0">
+          {/* Cloud: Multi-Device Real-Time Sync Status Pill */}
+          <div className="flex items-center shrink-0">
             <button
               type="button"
               onClick={onOpenSyncModal}
@@ -235,19 +233,20 @@ export const Header: React.FC<HeaderProps> = ({
                   ? 'bg-emerald-950/40 hover:bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
                   : 'bg-rose-950/40 hover:bg-rose-950/60 border-rose-500/40 text-rose-300'
               }`}
-              title="Click to view Cloud Firestore Real-Time Database Sync Center"
+              title="Multi-Device Firestore Live Sync Active. Click to view Cloud Sync Center."
             >
               <span className="relative flex h-2 w-2">
                 <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isConnected ? 'bg-emerald-400' : 'bg-rose-400'}`} />
                 <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} />
               </span>
               <Cloud className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Cloud: Firestore Real-Time Sync</span>
+              <span className="hidden sm:inline">Live Multi-Device Sync</span>
+              <span className="sm:hidden">Live Sync</span>
             </button>
           </div>
 
           {/* Client Switcher & Search Bar */}
-          <div className="flex-1 max-w-[180px] xl:max-w-xs relative hidden md:block">
+          <div className="flex-1 max-w-[140px] lg:max-w-[200px] xl:max-w-xs relative hidden lg:block">
             <div className="relative">
               <div 
                 onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
@@ -255,7 +254,7 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <div className="flex items-center gap-1.5 truncate">
                   <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">Client:</span>
-                  <span className="font-medium truncate text-white max-w-[90px] xl:max-w-[130px]">
+                  <span className="font-medium truncate text-white max-w-[80px] xl:max-w-[130px]">
                     {selectedClient ? selectedClient.clientName : 'Select Client...'}
                   </span>
                 </div>
@@ -315,14 +314,14 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Quick Actions & Always-Visible Sign Out Button */}
+          {/* Right Action Controls */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             
             {/* Insert File Button */}
             <button
               id="header-insert-file-btn"
               onClick={onOpenUploadModal}
-              className="bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-bold px-2 sm:px-2.5 lg:px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 transition shadow-sm shadow-sky-500/20 shrink-0"
+              className="bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-bold px-2.5 sm:px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition shadow-sm shadow-sky-500/20 shrink-0"
               title="Insert PDF or Document File"
             >
               <Upload className="w-3.5 h-3.5 shrink-0" />
@@ -333,36 +332,18 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="header-new-client-btn"
               onClick={onOpenNewClientModal}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-2 sm:px-2.5 lg:px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 border border-slate-700 transition shrink-0"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-2.5 sm:px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 border border-slate-700 transition shrink-0"
               title="Add New Client Profile"
             >
               <Plus className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-              <span className="hidden md:inline">Add Client</span>
+              <span className="hidden sm:inline">Add Client</span>
             </button>
-
-            {/* Master Security Gatekeeper Button */}
-            {currentUser?.isMaster && (
-              <button
-                id="header-gatekeeper-btn"
-                onClick={onOpenSecurityModal}
-                className="relative px-2 sm:px-2.5 lg:px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border border-amber-400/50 text-amber-300 text-xs font-bold transition flex items-center gap-1 shadow-sm shadow-amber-500/10 shrink-0"
-                title="Open Master Gatekeeper & Access Verification Center"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="hidden sm:inline">Gatekeeper</span>
-                {pendingRequestsCount > 0 && (
-                  <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-600 text-[9px] font-extrabold text-white animate-pulse">
-                    {pendingRequestsCount}
-                  </span>
-                )}
-              </button>
-            )}
 
             {/* Notification & Deadline Alert Bell */}
             <button
               id="header-alert-bell-btn"
               onClick={onOpenAlertCenter}
-              className="relative p-1.5 sm:p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition focus:outline-none focus:ring-2 focus:ring-sky-400 shrink-0"
+              className="relative p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition focus:outline-none focus:ring-2 focus:ring-sky-400 shrink-0"
               title="Deadline Alerts & Push Notifications"
             >
               <Bell className="w-4 h-4 text-sky-300 shrink-0" />
@@ -373,146 +354,96 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </button>
 
-            {/* Google User Profile & Menu */}
-            {currentUser && (
-              <div className="relative shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className={`flex items-center gap-1.5 p-1 pl-1.5 pr-2 rounded-xl border transition shadow-sm ${
-                    currentUser.isMaster
-                      ? 'bg-slate-800/95 hover:bg-slate-750 border-amber-400/50 text-slate-100 shadow-amber-500/10 ring-1 ring-amber-400/30'
-                      : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
-                  }`}
-                  title={`Logged in as ${currentUser.email} (${currentUser.isMaster ? 'Master Super Admin' : 'Verified Staff'})`}
-                >
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[11px] overflow-hidden shrink-0 ${
-                    currentUser.isMaster ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 ring-1 ring-amber-300/40 shadow-xs' : 'bg-sky-500 text-white'
-                  }`}>
-                    {currentUser.picture ? (
-                      <img src={currentUser.picture} alt={currentUser.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span>{currentUser.isMaster ? '👑' : currentUser.email.charAt(0).toUpperCase()}</span>
-                    )}
-                  </div>
-                  <div className="text-left hidden 2xl:block max-w-[140px] min-w-0">
-                    <p className="text-[10px] font-extrabold text-white truncate leading-tight">
-                      {currentUser.isMaster ? 'Master Owner' : currentUser.name}
-                    </p>
-                    <p className="text-[9px] text-slate-300 font-mono truncate leading-tight" title={currentUser.email}>
-                      {currentUser.email}
-                    </p>
-                  </div>
-                  <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
-                </button>
-
-                {showUserMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4 z-50 text-slate-200 animate-fade-in divide-y divide-slate-800">
-                    <div className="pb-3 mb-2">
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
-                          currentUser.isMaster ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40' : 'bg-sky-500/20 text-sky-300'
-                        }`}>
-                          {currentUser.isMaster ? '👑 MASTER SUPER ADMIN' : 'VERIFIED ACCESS'}
-                        </span>
-                        <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Google Verified</span>
-                        </span>
-                      </div>
-                      <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
-                      <p className="text-[11px] text-sky-300 font-mono truncate">{currentUser.email}</p>
-                    </div>
-
-                    <div className="space-y-1.5 pt-2.5">
-                      {/* Account Verification Inspector */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          if (onOpenVerificationModal) onOpenVerificationModal();
-                        }}
-                        className="w-full px-3 py-2 text-xs text-left font-bold text-sky-300 hover:bg-slate-800 rounded-xl transition flex items-center justify-between border border-sky-500/20 bg-sky-950/20"
-                      >
-                        <span className="flex items-center gap-2">
-                          <HelpCircle className="w-4 h-4 text-sky-400" />
-                          <span>Account Verification Proof</span>
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono">Inspect</span>
-                      </button>
-
-                      {/* Cloud Firestore Sync Center */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          if (onOpenSyncModal) onOpenSyncModal();
-                        }}
-                        className="w-full px-3 py-2 text-xs text-left font-bold text-emerald-300 hover:bg-slate-800 rounded-xl transition flex items-center justify-between border border-emerald-500/20 bg-emerald-950/20"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Cloud className="w-4 h-4 text-emerald-400" />
-                          <span>Firestore Real-Time Sync</span>
-                        </span>
-                        <span className="text-[10px] text-emerald-400 font-mono">Live</span>
-                      </button>
-
-                      {currentUser.isMaster && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowUserMenu(false);
-                            onOpenSecurityModal();
-                          }}
-                          className="w-full px-3 py-2 text-xs text-left font-bold text-amber-300 hover:bg-slate-800 rounded-xl transition flex items-center justify-between border border-amber-500/20 bg-amber-950/20"
-                        >
-                          <span className="flex items-center gap-2">
-                            <ShieldCheck className="w-4 h-4 text-amber-400" />
-                            <span>Security Gatekeeper</span>
-                          </span>
-                          {pendingRequestsCount > 0 && (
-                            <span className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded-full font-extrabold">
-                              {pendingRequestsCount} new
-                            </span>
-                          )}
-                        </button>
-                      )}
-
-                      {/* Sign Out Button inside dropdown */}
-                      <button
-                        type="button"
-                        id="user-menu-signout-btn"
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          onLogout();
-                        }}
-                        className="w-full px-3 py-2 text-xs text-left font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition flex items-center justify-between shadow-sm shadow-rose-600/30"
-                      >
-                        <span className="flex items-center gap-2">
-                          <LogOut className="w-4 h-4 text-white" />
-                          <span>Sign Out Account</span>
-                        </span>
-                        <span className="text-[10px] font-extrabold uppercase bg-rose-700/80 px-2 py-0.5 rounded text-white">Log Out</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Direct Always-Visible Header Sign Out Button */}
-            {currentUser && (
+            {/* Portal Master Access Dropdown */}
+            <div className="relative shrink-0">
               <button
                 type="button"
-                id="header-direct-signout-btn"
-                onClick={onLogout}
-                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white text-xs font-extrabold transition flex items-center gap-1.5 shadow-md shadow-rose-600/30 shrink-0 border border-rose-500/50"
-                title="Sign Out from IEN Realty Inc. Database"
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-1.5 p-1 pl-1.5 pr-2 rounded-xl border border-amber-400/40 bg-slate-800/95 hover:bg-slate-750 text-slate-100 shadow-sm transition"
+                title="IEN Realty Portal - Multi-Device Master Access"
               >
-                <LogOut className="w-3.5 h-3.5 shrink-0" />
-                <span className="inline">Sign Out</span>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[11px] overflow-hidden shrink-0 bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 ring-1 ring-amber-300/40 shadow-xs">
+                  <span>👑</span>
+                </div>
+                <div className="text-left hidden 2xl:block max-w-[120px] min-w-0">
+                  <p className="text-[10px] font-extrabold text-white truncate leading-tight">
+                    Master Access
+                  </p>
+                  <p className="text-[9px] text-emerald-400 font-mono truncate leading-tight">
+                    Live Synced
+                  </p>
+                </div>
+                <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
               </button>
-            )}
+
+              {showUserMenu && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4 z-50 text-slate-200 animate-fade-in divide-y divide-slate-800">
+                  <div className="pb-3 mb-2">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                        👑 MASTER PORTAL ACCESS
+                      </span>
+                      <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Multi-Device Sync</span>
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-white">IEN Realty Inc. Corporate Database</p>
+                    <p className="text-[11px] text-sky-300 font-mono">humanresource.iengoc@gmail.com</p>
+                  </div>
+
+                  <div className="space-y-1.5 pt-2.5">
+                    {/* Cloud Firestore Sync Center */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        if (onOpenSyncModal) onOpenSyncModal();
+                      }}
+                      className="w-full px-3 py-2 text-xs text-left font-bold text-emerald-300 hover:bg-slate-800 rounded-xl transition flex items-center justify-between border border-emerald-500/20 bg-emerald-950/20"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Cloud className="w-4 h-4 text-emerald-400" />
+                        <span>Cloud Multi-Device Sync Center</span>
+                      </span>
+                      <span className="text-[10px] text-emerald-400 font-mono">Live</span>
+                    </button>
+
+                    {/* Change Logo */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setShowLogoModal(true);
+                      }}
+                      className="w-full px-3 py-2 text-xs text-left font-bold text-sky-300 hover:bg-slate-800 rounded-xl transition flex items-center justify-between border border-sky-500/20 bg-sky-950/20"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-sky-400" />
+                        <span>Change Company Logo</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">Edit</span>
+                    </button>
+
+                    {/* Print Compliance Summary */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onOpenComplianceSummary();
+                      }}
+                      className="w-full px-3 py-2 text-xs text-left font-bold text-slate-200 hover:bg-slate-800 rounded-xl transition flex items-center justify-between border border-slate-700 bg-slate-800/40"
+                    >
+                      <span className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-slate-400" />
+                        <span>Audit Compliance Matrix</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">Print</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
           </div>
         </div>

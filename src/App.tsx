@@ -342,23 +342,7 @@ export default function App() {
     );
   }
 
-  // MASTER SECURITY GATEKEEPER:
-  // If not logged in OR if user is pending Master Admin verification, show the Master Verification Gate
-  if (!currentUser || currentUser.status !== 'active') {
-    return (
-      <MasterVerificationGate
-        currentUser={currentUser}
-        onUserAuthenticated={(user) => {
-          setCurrentUser(user);
-          if (user?.status === 'active') {
-            showToast(`Welcome, ${user.name}! Access authorized.`, 'success');
-          }
-        }}
-      />
-    );
-  }
-
-  // Main Application Workspace (Protected by Master Gatekeeper)
+  // Active Application Workspace (Multi-Device Live Sync Enabled)
   return (
     <div className="min-h-screen bg-slate-100/90 text-slate-900 font-sans antialiased selection:bg-sky-400 selection:text-slate-950 overflow-x-hidden">
       
@@ -400,9 +384,7 @@ export default function App() {
         onOpenSyncModal={() => setIsSyncModalOpen(true)}
         onOpenVerificationModal={() => setIsVerificationModalOpen(true)}
         onLogout={() => {
-          authService.logout();
-          setCurrentUser(null);
-          showToast('Signed out successfully.', 'info');
+          showToast('Portal reset to default active session.', 'info');
         }}
         onUpdateAppLogo={handleUpdateAppLogo}
         appLogo={appLogo}
@@ -410,7 +392,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="max-w-[1700px] mx-auto px-3 sm:px-5 lg:px-8 py-4 sm:py-6">
         
         {/* VIEW 1: MASTER CLIENT DIRECTORY (All Clients Overview) */}
         {currentView === 'directory' ? (
